@@ -1,0 +1,10 @@
+/.bundle/
+/.ruby-version
+/doc/
+/pkg/
+/tmp/
+/Gemfile.lock
+/target/
+*.bundle
+*.so
+*.dll
