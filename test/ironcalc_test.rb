@@ -62,8 +62,8 @@ class CreateTest < Minitest::Test
     model.set_user_input(0, 1, 2, "hello")
     model.evaluate
 
-    assert_equal "number", model.get_cell_type(0, 1, 1)
-    assert_equal "text", model.get_cell_type(0, 1, 2)
+    assert_equal :number, model.get_cell_type(0, 1, 1)
+    assert_equal :text, model.get_cell_type(0, 1, 2)
   end
 
   def test_worksheets_properties

@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 
+use magnus::value::StaticSymbol;
 use magnus::{RArray, RString, Ruby};
 
 use xlsx::base::types::Style;
@@ -8,8 +9,8 @@ use xlsx::export::{save_to_icalc, save_to_xlsx};
 
 use crate::error::workbook_error;
 
-/// Maps an engine `CellType` to a snake_case string, mirroring the names of the
-/// Python binding's `CellType` enum variants.
+/// Maps an engine `CellType` to a snake_case name, matching the names of the
+/// Python binding's `CellType` enum variants. Returned to Ruby as a Symbol.
 fn cell_type_to_str(cell_type: xlsx::base::types::CellType) -> &'static str {
     use xlsx::base::types::CellType::*;
     match cell_type {
@@ -98,15 +99,17 @@ impl Model {
     }
 
     pub fn get_cell_type(
-        &self,
+        ruby: &Ruby,
+        rb_self: &Self,
         sheet: u32,
         row: i32,
         column: i32,
-    ) -> Result<String, magnus::Error> {
-        self.model
+    ) -> Result<StaticSymbol, magnus::Error> {
+        rb_self
+            .model
             .borrow()
             .get_cell_type(sheet, row, column)
-            .map(|t| cell_type_to_str(t).to_string())
+            .map(|t| ruby.sym_new(cell_type_to_str(t)))
             .map_err(workbook_error)
     }
 
