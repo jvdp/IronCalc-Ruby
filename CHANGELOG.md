@@ -1,3 +1,7 @@
+## 0.7.1.3
+
+- fix build-provenance and setup github releases
+
 ## 0.7.1.2
 
 - Ship precompiled native gems for common platforms (Linux, macOS, Windows),
