@@ -53,6 +53,14 @@ Standard Rust-extension gem with a thin Ruby wrapper layer on top:
 
 The Cargo package/lib is **`ironcalc_ruby`**, NOT `ironcalc`, because the engine dependency's own Cargo package is named `ironcalc`, and `RbSys::ExtensionTask` resolves the extension by **Cargo package name** — a same-named ext crate would resolve to the engine and break the build. The engine dep is therefore renamed in `Cargo.toml`: `xlsx = { package = "ironcalc", version = "0.7.1" }`, so Rust source refers to it as `xlsx::base`, `xlsx::import`, `xlsx::export` (matching the Python binding). The compiled artifact is `ironcalc_ruby.so`; `require "ironcalc"` and the gem name are unaffected.
 
+### Two APIs: `UserModel` (recommended) vs `Model` (raw)
+
+The engine exposes two surfaces and the split matters:
+- **`IronCalc::UserModel`** — auto-evaluates after every action and tracks diffs; the recommended path. Mirrors the **WASM binding** (the engine's canonical UserModel) and is intentionally a **superset of the Python `PyUserModel`** (which is thin). Rich surface: cell I/O, `get_cell_style`/`set_cell_style` (the latter diffs the Hash and applies each leaf via the engine's per-property `update_range_style`), `update_range_style`, rows/columns, frozen counts, sheet management, `undo`/`redo`/`can_undo`/`can_redo`.
+- **`IronCalc::Model`** — the raw API; you must call `evaluate` yourself and misuse can leave the workbook inconsistent. Kept at **Python `PyModel` parity** (do not diverge here).
+
+Styling differs between the two: `Model` round-trips a whole-Style JSON Hash (`set_cell_style_json`/`get_cell_style_json`); `UserModel` reads a Hash but **sets per-property** (no whole-Style setter in the engine UserModel).
+
 ### Idiomatic-Ruby divergences from Python (keep these consistent)
 
 - Errors → `IronCalc::Error` (Python: `WorkbookError`).

@@ -11,7 +11,7 @@ use crate::error::workbook_error;
 
 /// Maps an engine `CellType` to a snake_case name, matching the names of the
 /// Python binding's `CellType` enum variants. Returned to Ruby as a Symbol.
-fn cell_type_to_str(cell_type: xlsx::base::types::CellType) -> &'static str {
+pub(crate) fn cell_type_to_str(cell_type: xlsx::base::types::CellType) -> &'static str {
     use xlsx::base::types::CellType::*;
     match cell_type {
         Number => "number",
