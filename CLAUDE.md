@@ -35,6 +35,14 @@ bundle exec ruby -Itest test/ironcalc_test.rb -n test_NAME   # run a single test
 
 `test/fixtures_helper.rb` resolves those fixtures from the **published crate's `tests/` dir** (not vendored copies) via `cargo metadata` → the `ironcalc` package's `manifest_path`. So fixtures stay pinned to whatever engine version we depend on. If the crate source isn't in the Cargo registry yet (no prior `rake compile`/fetch), the fixture-backed tests **skip** with a message rather than fail.
 
+### Checking API parity (`rake parity`)
+
+`rake parity` (defined in `tasks/parity.rake`) guards the binding's API surface against drift. It introspects the Ruby classes at runtime and diffs them against:
+- **The Python bindings** (authoritative): `Model` must match `PyModel` exactly, `UserModel` must be a superset of `PyUserModel`, module functions must match. Needs an IronCalc checkout (`IRONCALC_REPO`, default `/home/code/IronCalc`).
+- **The engine's `UserModel`** (version-pinned via `cargo metadata` on `ironcalc_base`): reports canonical methods we don't expose yet, minus an allowlist of intentionally-omitted UI/internal methods.
+
+Report-only by default; `STRICT=1 rake parity` exits non-zero on hard Python-parity gaps (CI gate). Run it after bumping the `ironcalc` dependency and when adding methods.
+
 ## Architecture
 
 Standard Rust-extension gem with a thin Ruby wrapper layer on top:
