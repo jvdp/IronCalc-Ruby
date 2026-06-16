@@ -6,6 +6,8 @@ Rake::TestTask.new do |t|
   t.test_files = FileList["test/**/*_test.rb"]
 end
 
+Dir["tasks/*.rake"].each { |f| load f }
+
 task default: %i[compile test]
 
 platforms = [
