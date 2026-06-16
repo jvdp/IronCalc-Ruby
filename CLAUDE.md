@@ -43,6 +43,10 @@ bundle exec ruby -Itest test/ironcalc_test.rb -n test_NAME   # run a single test
 
 Report-only by default; `STRICT=1 rake parity` exits non-zero on hard Python-parity gaps (CI gate). Run it after bumping the `ironcalc` dependency and when adding methods.
 
+### API docs (`rake doc`, YARD)
+
+`rake doc` generates HTML into `doc/` via YARD (config in `.yardopts`; this is what rubydoc.info builds from). Because the public API is defined in Rust (magnus), YARD can't see it — so the native methods are documented with `@!method` **stubs** in `lib/ironcalc/native_methods.rb` (a doc-only file, not required at runtime). The Ruby-layer wrappers in `lib/ironcalc/model.rb` are documented inline as normal. **When you add/rename a native method, update its stub** — `rake parity` catches surface drift but not doc drift. (This differs from polars-ruby, which has a thick Ruby wrapper layer and so documents real Ruby methods; our binding is native-heavy by design, mirroring Python's flat API.)
+
 ## Architecture
 
 Standard Rust-extension gem with a thin Ruby wrapper layer on top:
