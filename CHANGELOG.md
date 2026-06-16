@@ -1,4 +1,4 @@
-## 0.1.0 (unreleased)
+## 0.7.1.0 (unreleased)
 
 - First release
 - Ruby bindings for the IronCalc spreadsheet engine (engine 0.7.1)

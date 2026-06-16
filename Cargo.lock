@@ -484,7 +484,7 @@ dependencies = [
 
 [[package]]
 name = "ironcalc_ruby"
-version = "0.1.0"
+version = "0.7.1"
 dependencies = [
  "bitcode",
  "ironcalc",
