@@ -1,6 +1,5 @@
 [package]
 name = "ironcalc_ruby"
-version = "0.7.1"
 edition = "2021"
 publish = false
 
