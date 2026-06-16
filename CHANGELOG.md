@@ -1,4 +1,8 @@
-## 0.7.1.0 (unreleased)
+## 0.7.1.2
+
+- Ship precompiled native gems for common platforms (Linux, macOS, Windows),
+  so installing no longer rebuilds the IronCalc engine from source
+- Publish via RubyGems Trusted Publishing with SigStore build provenance
 
 ## 0.7.1.1
 
