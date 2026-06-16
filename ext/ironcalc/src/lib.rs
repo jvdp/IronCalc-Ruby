@@ -198,11 +198,68 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
         method!(UserModel::apply_external_diffs, 1),
     )?;
     user_model_class.define_method("flush_send_queue", method!(UserModel::flush_send_queue, 0))?;
+    // Evaluation / history
+    user_model_class.define_method("evaluate", method!(UserModel::evaluate, 0))?;
+    user_model_class.define_method("undo", method!(UserModel::undo, 0))?;
+    user_model_class.define_method("redo", method!(UserModel::redo, 0))?;
+    user_model_class.define_method("can_undo", method!(UserModel::can_undo, 0))?;
+    user_model_class.define_method("can_redo", method!(UserModel::can_redo, 0))?;
+    // Set / clear / get values
     user_model_class.define_method("set_user_input", method!(UserModel::set_user_input, 4))?;
+    user_model_class.define_method(
+        "clear_cell_contents",
+        method!(UserModel::clear_cell_contents, 3),
+    )?;
+    user_model_class.define_method("get_cell_content", method!(UserModel::get_cell_content, 3))?;
+    user_model_class.define_method("get_cell_type", method!(UserModel::get_cell_type, 3))?;
     user_model_class.define_method(
         "get_formatted_cell_value",
         method!(UserModel::get_formatted_cell_value, 3),
     )?;
+    // Styles
+    user_model_class.define_method(
+        "get_cell_style_json",
+        method!(UserModel::get_cell_style_json, 3),
+    )?;
+    user_model_class.define_method(
+        "update_range_style",
+        method!(UserModel::update_range_style, 5),
+    )?;
+    // Rows / columns
+    user_model_class.define_method("insert_rows", method!(UserModel::insert_rows, 3))?;
+    user_model_class.define_method("insert_columns", method!(UserModel::insert_columns, 3))?;
+    user_model_class.define_method("delete_rows", method!(UserModel::delete_rows, 3))?;
+    user_model_class.define_method("delete_columns", method!(UserModel::delete_columns, 3))?;
+    user_model_class.define_method("get_column_width", method!(UserModel::get_column_width, 2))?;
+    user_model_class.define_method("get_row_height", method!(UserModel::get_row_height, 2))?;
+    user_model_class.define_method("set_column_width", method!(UserModel::set_column_width, 3))?;
+    user_model_class.define_method("set_row_height", method!(UserModel::set_row_height, 3))?;
+    // Frozen rows / columns
+    user_model_class.define_method(
+        "get_frozen_columns_count",
+        method!(UserModel::get_frozen_columns_count, 1),
+    )?;
+    user_model_class.define_method(
+        "get_frozen_rows_count",
+        method!(UserModel::get_frozen_rows_count, 1),
+    )?;
+    user_model_class.define_method(
+        "set_frozen_columns_count",
+        method!(UserModel::set_frozen_columns_count, 2),
+    )?;
+    user_model_class.define_method(
+        "set_frozen_rows_count",
+        method!(UserModel::set_frozen_rows_count, 2),
+    )?;
+    // Sheets
+    user_model_class.define_method(
+        "get_worksheets_properties",
+        method!(UserModel::get_worksheets_properties, 0),
+    )?;
+    user_model_class.define_method("set_sheet_color", method!(UserModel::set_sheet_color, 2))?;
+    user_model_class.define_method("new_sheet", method!(UserModel::new_sheet, 0))?;
+    user_model_class.define_method("delete_sheet", method!(UserModel::delete_sheet, 1))?;
+    user_model_class.define_method("rename_sheet", method!(UserModel::rename_sheet, 2))?;
     user_model_class.define_method(
         "get_sheet_dimensions",
         method!(UserModel::get_sheet_dimensions, 1),
