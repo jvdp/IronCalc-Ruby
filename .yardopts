@@ -1,0 +1,11 @@
+--markup markdown
+--main README.md
+--readme README.md
+--output-dir doc
+--no-private
+lib/**/*.rb
+-
+README.md
+CHANGELOG.md
+LICENSE-MIT.md
+LICENSE-Apache-2.0.md
