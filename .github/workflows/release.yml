@@ -1,0 +1,113 @@
+name: release
+
+# Cross-compiles precompiled native gems for every supported platform (the
+# nokogiri model, via rb-sys + rb-sys-dock) and publishes them — together with
+# the pure-source fallback gem — to rubygems.org through Trusted Publishing,
+# which also produces the SigStore build-provenance attestation (the green
+# "provenance" badge on rubygems.org).
+#
+# Triggered by pushing a version tag (e.g. `v0.7.1.1`). Use workflow_dispatch
+# (with `dry_run: true`, the default) to build every gem without publishing.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build gems but do not push to rubygems.org"
+        type: boolean
+        default: true
+
+jobs:
+  # One precompiled gem per platform. Each gem bundles a .so for every Ruby ABI
+  # listed in `ruby-versions`, matching the version-aware require in
+  # lib/ironcalc.rb (`ironcalc/#{RUBY_VERSION.to_f}/ironcalc_ruby`).
+  cross-gems:
+    name: cross-gem (${{ matrix.platform }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - x86_64-linux
+          - x86_64-linux-musl
+          - aarch64-linux
+          - aarch64-linux-musl
+          - x86_64-darwin
+          - arm64-darwin
+          - x64-mingw-ucrt
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+
+      # rb-sys-dock containers carry the cross toolchains + every Ruby ABI.
+      - uses: oxidize-rb/actions/cross-gem@v1
+        id: cross-gem
+        with:
+          platform: ${{ matrix.platform }}
+          ruby-versions: "3.0,3.1,3.2,3.3,3.4"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cross-gem-${{ matrix.platform }}
+          path: pkg/*.gem
+          if-no-files-found: error
+
+  # The pure-source gem: the fallback RubyGems installs on any platform we did
+  # not precompile (it compiles the Rust extension from crates.io on install).
+  source-gem:
+    name: source gem
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+      - run: bundle exec rake build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: source-gem
+          path: pkg/*.gem
+          if-no-files-found: error
+
+  publish:
+    name: publish to rubygems.org
+    needs: [cross-gems, source-gem]
+    runs-on: ubuntu-latest
+    # Only publish for a real tag push; workflow_dispatch is build-only unless
+    # dry_run is explicitly set to false.
+    if: github.event_name == 'push' || inputs.dry_run == false
+    permissions:
+      contents: read
+      # Required for Trusted Publishing (OIDC) and the SigStore attestation.
+      id-token: write
+    steps:
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: pkg
+          merge-multiple: true
+
+      # Exchanges the GitHub OIDC token for a short-lived rubygems.org API key.
+      # The repo + this workflow must be registered as a Trusted Publisher for
+      # the `ironcalc` gem on rubygems.org first (Gem settings → Trusted
+      # Publishers). No RUBYGEMS_API_KEY secret is needed.
+      - uses: rubygems/configure-trusted-publisher@v1
+
+      # `gem push` from a Trusted-Publishing context auto-generates a SigStore
+      # build-provenance attestation, which surfaces as the provenance badge.
+      - name: Push gems
+        run: |
+          for gem in pkg/*.gem; do
+            echo "Pushing $gem"
+            gem push "$gem"
+          done

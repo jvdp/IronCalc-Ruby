@@ -7,7 +7,7 @@ Gem::Specification.new do |spec|
   spec.description   = "Ruby bindings for the IronCalc spreadsheet engine. " \
     "Create, read and manipulate xlsx files: manage sheets, set and read cell " \
     "values, and evaluate spreadsheets."
-  spec.homepage      = "https://github.com/ironcalc/ironcalc-ruby"
+  spec.homepage      = "https://github.com/jvdp/IronCalc-Ruby"
   spec.license       = "MIT OR Apache-2.0"
 
   spec.author        = "jvdp"
@@ -15,8 +15,8 @@ Gem::Specification.new do |spec|
 
   spec.metadata = {
     "homepage_uri" => "https://www.ironcalc.com/",
-    "source_code_uri" => "https://github.com/ironcalc/ironcalc-ruby",
-    "bug_tracker_uri" => "https://github.com/ironcalc/ironcalc-ruby/issues"
+    "source_code_uri" => "https://github.com/jvdp/IronCalc-Ruby",
+    "bug_tracker_uri" => "https://github.com/jvdp/IronCalc-Ruby/issues"
   }
 
   spec.files         = Dir["*.{md,txt}", "{ext,lib}/**/*", "Cargo.*", "LICENSE-*"]
@@ -26,5 +26,8 @@ Gem::Specification.new do |spec|
 
   spec.required_ruby_version = ">= 3.0"
 
-  spec.add_dependency "rb_sys"
+  # Drives the Rust build at install time. Precompiled platform gems built by
+  # the release workflow ship the .so directly and clear `spec.extensions`, so
+  # they never compile and this dependency is inert for those users.
+  spec.add_dependency "rb_sys", "~> 0.9"
 end
