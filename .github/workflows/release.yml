@@ -98,17 +98,54 @@ jobs:
           path: pkg
           merge-multiple: true
 
-      # Exchanges the GitHub OIDC token for a short-lived rubygems.org API key.
+      # Exchanges the GitHub OIDC token for short-lived rubygems.org credentials.
       # The repo + this workflow must be registered as a Trusted Publisher for
       # the `ironcalc` gem on rubygems.org first (Gem settings → Trusted
-      # Publishers). No RUBYGEMS_API_KEY secret is needed.
-      - uses: rubygems/configure-trusted-publisher@v1
+      # Publishers). No RUBYGEMS_API_KEY secret and no inputs are needed — same
+      # zero-config usage as rails/rails.
+      - uses: rubygems/configure-rubygems-credentials@v2.1.0
 
-      # `gem push` from a Trusted-Publishing context auto-generates a SigStore
-      # build-provenance attestation, which surfaces as the provenance badge.
+      # `gem push` auto-generates a SigStore build-provenance attestation when
+      # run in GitHub Actions against rubygems.org (the runner's RubyGems is
+      # recent enough), which surfaces as the provenance badge.
       - name: Push gems
         run: |
           for gem in pkg/*.gem; do
             echo "Pushing $gem"
             gem push "$gem"
           done
+
+  # Create the GitHub Release for the tag, with notes pulled from CHANGELOG.md
+  # (via `rake changelog:extract`) and the built gems attached as assets. Runs
+  # after the rubygems push so the release only appears once the gems are live.
+  github-release:
+    name: GitHub release
+    needs: [publish]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+
+      # Tag is `v1.2.3`; the changelog heading is `1.2.3`.
+      - name: Extract release notes from CHANGELOG.md
+        run: bundle exec rake changelog:extract VERSION="${GITHUB_REF_NAME#v}" > RELEASE_NOTES.md
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: pkg
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "${GITHUB_REF_NAME}" \
+            --notes-file RELEASE_NOTES.md \
+            pkg/*.gem
