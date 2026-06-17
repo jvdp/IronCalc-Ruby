@@ -38,7 +38,7 @@ jobs:
           - arm64-darwin
           - x64-mingw-ucrt
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: ruby/setup-ruby@v1
         with:
@@ -51,7 +51,7 @@ jobs:
           platform: ${{ matrix.platform }}
           ruby-versions: "3.0,3.1,3.2,3.3,3.4,4.0"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: cross-gem-${{ matrix.platform }}
           path: pkg/*.gem
@@ -63,14 +63,14 @@ jobs:
     name: source gem
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.4"
           bundler-cache: true
       - run: bundle exec rake changelog:check
       - run: bundle exec rake build
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: source-gem
           path: pkg/*.gem
@@ -92,7 +92,7 @@ jobs:
         with:
           ruby-version: "3.4"
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: pkg
           merge-multiple: true
@@ -126,7 +126,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.4"
@@ -136,7 +136,7 @@ jobs:
       - name: Extract release notes from CHANGELOG.md
         run: bundle exec rake changelog:extract VERSION="${GITHUB_REF_NAME#v}" > RELEASE_NOTES.md
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: pkg
           merge-multiple: true

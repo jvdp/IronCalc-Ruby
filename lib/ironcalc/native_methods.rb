@@ -275,6 +275,11 @@ module IronCalc
     #   @param sheet [Integer]
     #   @return [Array(Integer, Integer, Integer, Integer)]
     #   @raise [IronCalc::Error]
+
+    # Without a real def, the @!method stubs above leak to the IronCalc module
+    # (yardoc bug lsegal/yard#1207). Doc-only file, never loaded at runtime.
+    # @!visibility private
+    def __yard_anchor__; end
   end
 
   # The recommended, higher-level IronCalc API. Auto-evaluates after every action
@@ -497,5 +502,9 @@ module IronCalc
     #   @param sheet [Integer]
     #   @return [Array(Integer, Integer, Integer, Integer)]
     #   @raise [IronCalc::Error]
+
+    # Anchors the @!method stubs above — see {Model}.
+    # @!visibility private
+    def __yard_anchor__; end
   end
 end
