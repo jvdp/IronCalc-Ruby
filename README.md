@@ -1,4 +1,4 @@
-# IronCalc Ruby
+# IronCalc for Ruby
 
 Ruby bindings for [IronCalc](https://www.ironcalc.com/), a modern spreadsheet
 engine written in Rust. Create, read and manipulate xlsx files — manage sheets,
@@ -27,7 +27,7 @@ require "ironcalc"
 
 # Raw API — call evaluate yourself.
 model = IronCalc.create("model", "en", "UTC", "en")
-model.set_user_input(0, 1, 1, "=21*2")
+model.set_user_input(0, 1, 1, "=6*7")
 model.evaluate
 model.get_formatted_cell_value(0, 1, 1) # => "42"
 model.save_to_xlsx("out.xlsx")
@@ -69,7 +69,7 @@ via **pyo3**, Ruby via **magnus** / **rb-sys**) exposing a module named
   `create_user_model_from_bytes`.
 - **Method names and signatures** on `Model` / `UserModel` — `set_user_input`,
   `get_formatted_cell_value`, `evaluate`, `insert_rows`, `set_column_width`,
-  `add_sheet`, `save_to_xlsx`, `to_bytes`, … (Python's `snake_case` is also
+  `new_sheet`, `save_to_xlsx`, `to_bytes`, … (Python's `snake_case` is also
   Ruby's convention, so they match exactly).
 - **Coordinates**: `sheet` is a 0-based index; `row` and `column` are 1-based.
 - **Semantics**: the same engine, so the same inputs produce the same results.
@@ -78,7 +78,7 @@ via **pyo3**, Ruby via **magnus** / **rb-sys**) exposing a module named
 # Python
 import ironcalc as ic
 model = ic.create("model", "en", "UTC", "en")
-model.set_user_input(0, 1, 1, "=21*2")
+model.set_user_input(0, 1, 1, "=6*7")
 model.evaluate()
 model.get_formatted_cell_value(0, 1, 1)   # "42"
 ```
@@ -87,7 +87,7 @@ model.get_formatted_cell_value(0, 1, 1)   # "42"
 # Ruby
 require "ironcalc"
 model = IronCalc.create("model", "en", "UTC", "en")
-model.set_user_input(0, 1, 1, "=21*2")
+model.set_user_input(0, 1, 1, "=6*7")
 model.evaluate
 model.get_formatted_cell_value(0, 1, 1)   # "42"
 ```
@@ -105,20 +105,12 @@ ports:
 | Cell type | `CellType` enum | `Symbol` (`:number`, `:text`, …) |
 | Worksheet properties | list of `SheetProperty` objects | array of `Hash`es (`:name`, `:state`, `:sheet_id`, `:color`) |
 | Sheet dimensions | tuple `(min_row, max_row, min_col, max_col)` | 4-element `Array` |
-| Binary blobs | `bytes` | binary `String` |
+| Binary data | `bytes` | binary `String` |
 | Version | `ironcalc.__version__` | `IronCalc::VERSION` |
 
 Rather than reconstruct Python's per-field style classes, Ruby exchanges styles
 as plain hashes (serialized as JSON across the boundary). Everything else is kept
 as close to the Python bindings as the two languages allow.
-
-## Development
-
-```sh
-bundle install
-bundle exec rake compile
-bundle exec rake test
-```
 
 ## License
 
