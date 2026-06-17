@@ -18,7 +18,9 @@ Gem::Specification.new do |spec|
   spec.metadata = {
     "homepage_uri" => "https://www.ironcalc.com/",
     "source_code_uri" => "https://github.com/jvdp/IronCalc-Ruby",
-    "bug_tracker_uri" => "https://github.com/jvdp/IronCalc-Ruby/issues"
+    "bug_tracker_uri" => "https://github.com/jvdp/IronCalc-Ruby/issues",
+    "changelog_uri" => "https://raw.githubusercontent.com/jvdp/IronCalc-Ruby/refs/heads/main/CHANGELOG.md",
+    "documentation_uri" => "https://www.rubydoc.info/gems/ironcalc/"
   }
 
   spec.files         = Dir["*.{md,txt}", "{ext,lib}/**/*", "Cargo.*", "LICENSE-*", ".yardopts"]
