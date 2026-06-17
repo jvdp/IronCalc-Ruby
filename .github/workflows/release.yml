@@ -45,12 +45,11 @@ jobs:
           ruby-version: "3.4"
           bundler-cache: true
 
-      # rb-sys-dock containers carry the cross toolchains + every Ruby ABI.
       - uses: oxidize-rb/actions/cross-gem@v1
         id: cross-gem
         with:
           platform: ${{ matrix.platform }}
-          ruby-versions: "3.0,3.1,3.2,3.3,3.4"
+          ruby-versions: "3.0,3.1,3.2,3.3,3.4,4.0"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -98,26 +97,27 @@ jobs:
           path: pkg
           merge-multiple: true
 
-      # Exchanges the GitHub OIDC token for short-lived rubygems.org credentials.
-      # The repo + this workflow must be registered as a Trusted Publisher for
-      # the `ironcalc` gem on rubygems.org first (Gem settings → Trusted
-      # Publishers). No RUBYGEMS_API_KEY secret and no inputs are needed — same
-      # zero-config usage as rails/rails.
+      # Keyless auth via OIDC. Requires the `ironcalc` gem to have this repo
+      # registered as a Trusted Publisher on rubygems.org first (no secret, no
+      # inputs).
       - uses: rubygems/configure-rubygems-credentials@v2.1.0
 
-      # `gem push` auto-generates a SigStore build-provenance attestation when
-      # run in GitHub Actions against rubygems.org (the runner's RubyGems is
-      # recent enough), which surfaces as the provenance badge.
-      - name: Push gems
+      # Released `gem push` only attests when handed an explicit `--attestation`
+      # file (auto-attestation is unreleased/master-only), so sign each gem
+      # ourselves. sigstore signing is keyless via the job's OIDC identity. The
+      # attestation is what yields the rubygems.org provenance badge.
+      - name: Sign and push gems
         run: |
           for gem in pkg/*.gem; do
+            echo "Signing $gem"
+            gem exec sigstore-cli:0.2.3 sign "$gem" --bundle "$gem.sigstore.json"
             echo "Pushing $gem"
-            gem push "$gem"
+            gem push "$gem" --attestation "$gem.sigstore.json"
           done
 
-  # Create the GitHub Release for the tag, with notes pulled from CHANGELOG.md
-  # (via `rake changelog:extract`) and the built gems attached as assets. Runs
-  # after the rubygems push so the release only appears once the gems are live.
+  # Notes come from the CHANGELOG section for this version; the built gems are
+  # attached as assets. After `publish` so the release only appears once the
+  # gems are live.
   github-release:
     name: GitHub release
     needs: [publish]

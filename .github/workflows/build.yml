@@ -5,7 +5,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ruby: ["3.3", "3.4"]
+        ruby: ["3.3", "3.4", "4.0"]
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -21,5 +21,6 @@ jobs:
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
+      - run: sudo apt-get update && sudo apt-get install -y libclang-dev
       - run: bundle exec rake compile
       - run: bundle exec rake test

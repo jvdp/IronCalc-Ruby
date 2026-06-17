@@ -21,15 +21,14 @@ Gem::Specification.new do |spec|
     "bug_tracker_uri" => "https://github.com/jvdp/IronCalc-Ruby/issues"
   }
 
-  spec.files         = Dir["*.{md,txt}", "{ext,lib}/**/*", "Cargo.*", "LICENSE-*"]
+  spec.files         = Dir["*.{md,txt}", "{ext,lib}/**/*", "Cargo.*", "LICENSE-*", ".yardopts"]
     .reject { |f| f.match?(/\.(so|bundle|dll)$/) }
   spec.require_path  = "lib"
   spec.extensions    = ["ext/ironcalc/extconf.rb"]
 
   spec.required_ruby_version = ">= 3.0"
 
-  # Drives the Rust build at install time. Precompiled platform gems built by
-  # the release workflow ship the .so directly and clear `spec.extensions`, so
-  # they never compile and this dependency is inert for those users.
+  # Builds the Rust extension at install time. Precompiled platform gems ship
+  # the .so and clear `spec.extensions`, so this never runs for those users.
   spec.add_dependency "rb_sys", "~> 0.9"
 end

@@ -16,7 +16,9 @@ Add this line to your application's Gemfile:
 gem "ironcalc"
 ```
 
-A Rust toolchain is required to build from source.
+On common platforms (Linux, macOS, Windows) a precompiled gem is installed, so
+no Rust toolchain is required. On other platforms the gem builds the IronCalc
+engine from source, which requires a Rust toolchain.
 
 ## Usage
 

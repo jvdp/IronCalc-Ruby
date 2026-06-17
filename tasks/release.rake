@@ -1,16 +1,9 @@
-# `rake release` comes from bundler/gem_tasks (required in the Rakefile) and
-# expands to:
-#   build → release:guard_clean → release:source_control_push → release:rubygem_push
-#
-# In this repo, publishing is done by CI (.github/workflows/release.yml) on tag
-# push: it cross-compiles the precompiled platform gems and pushes everything
-# via Trusted Publishing (with SigStore provenance). A local `gem push` would
-# instead publish an unsigned, source-only gem AND claim the (immutable)
-# version before CI can — racing the workflow. So we keep the tag/push half and
-# turn the publish step into a no-op.
-#
-# Net: `rake release` tags `v#{VERSION}`, pushes branch + tag (triggering CI),
-# and stops. This file loads after bundler/gem_tasks, so the override sticks.
+# bundler/gem_tasks' `rake release` ends in `release:rubygem_push` (a local
+# `gem push`). Here publishing is CI's job (release.yml, on tag push): a local
+# push would publish an unsigned, source-only gem and claim the immutable
+# version before CI's cross-compiled, signed gems land. So we no-op that step,
+# leaving `rake release` to only build, guard-clean, tag, and push the tag —
+# which triggers CI. Loads after bundler/gem_tasks, so the override wins.
 if Rake::Task.task_defined?("release:rubygem_push")
   Rake::Task["release:rubygem_push"].clear
 

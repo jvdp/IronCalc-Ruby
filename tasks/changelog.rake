@@ -1,14 +1,6 @@
-# `rake changelog:*` — small helpers around CHANGELOG.md (Keep a Changelog style:
-# https://keepachangelog.com). No external gems or API calls — just git + the
-# file — so it works offline and in CI.
-#
-#   changelog:check       guard that IronCalc::VERSION has a non-empty section.
-#                         Cheap release preflight; wire it before tagging.
-#   changelog:unreleased  scaffold bullets from commits since the last v* tag,
-#                         to paste under a new heading (the git-cliff idea, kept
-#                         dependency-free and non-magical).
-#   changelog:extract     print one version's section (default: current), e.g.
-#                         for GitHub release notes: `rake changelog:extract`.
+# `rake changelog:*` — helpers around CHANGELOG.md (Keep a Changelog format).
+# Pure git + file reads, no gems or network, so they run offline and in CI.
+# See each task's `desc` below.
 
 require_relative "../lib/ironcalc/version"
 
@@ -35,7 +27,6 @@ module Changelog
 
   def commits_since(ref)
     range = ref ? "#{ref}..HEAD" : "HEAD"
-    # --no-merges keeps merge commits out; %s is the subject line.
     `git log #{range} --no-merges --pretty=format:'- %s'`.strip
   end
 end
