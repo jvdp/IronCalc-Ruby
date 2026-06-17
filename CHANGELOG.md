@@ -1,6 +1,14 @@
+## 0.7.1.5
+
+- link to changelog and documentation in gemspec
+- update actions
+- work-around for yard bug
+
 ## 0.7.1.4
 
-- build for Ruby 4.0, push with attestation, include .yardopts
+- build for Ruby 4.0
+- push with attestation
+- include .yardopts
 
 ## 0.7.1.3
 
