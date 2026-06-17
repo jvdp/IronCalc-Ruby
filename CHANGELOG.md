@@ -1,3 +1,7 @@
+## 0.7.1.4
+
+- build for Ruby 4.0, push with attestation, include .yardopts
+
 ## 0.7.1.3
 
 - fix build-provenance and setup github releases
