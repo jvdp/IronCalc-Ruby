@@ -1,0 +1,108 @@
+name: docs
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# Allow the deploy job to publish to GitHub Pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Serialize Pages work; don't cancel an in-flight deploy.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # need full history + tags for multi-version docs
+          fetch-tags: true
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+      # YARD only parses Ruby source (native methods are documented via stubs in
+      # lib/ironcalc/native_methods.rb), so the extension never needs compiling.
+      - run: gem install yard kramdown
+
+      # Always validate that the current ref's docs build cleanly (every push/PR).
+      - name: Validate docs build
+        run: yard doc --no-output
+
+      # Assemble the site only when we'll deploy (main). Docs are grouped by
+      # IronCalc engine version (first three version segments, e.g. 0.7.1.5 ->
+      # 0.7.1): for each engine version we build only its highest gem release
+      # into /<engine-version>/. The newest is mirrored at the root, and
+      # versions.html lists them all.
+      - name: Build versioned site
+        if: github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          rm -rf site && mkdir -p site
+          # --- TEMP (testing): build the CURRENT checkout instead of tagged
+          #     releases, so a push to main deploys docs without needing tags.
+          #     Restore the tag-based block below when done testing.
+          ver=$(sed -nE 's/.*VERSION *= *"([^"]+)".*/\1/p' lib/ironcalc/version.rb)
+          eng=$(echo "$ver" | cut -d. -f1-3)
+          yard doc
+          cp -r doc "site/$eng"
+          cp -r doc/. site/   # root = current checkout
+          {
+            echo '<!doctype html><meta charset="utf-8"><title>IronCalc Ruby docs</title>'
+            echo '<h1>IronCalc Ruby — documentation</h1><ul>'
+            echo "<li><a href=\"./$eng/\">$eng</a></li>"
+            echo '</ul>'
+          } > site/versions.html
+          # --- end TEMP ---
+          #
+          # # Highest tag per engine version (ascending sort => last assignment wins).
+          # declare -A best
+          # for tag in $(git tag -l 'v*' | sort -V); do
+          #   eng=$(echo "${tag#v}" | cut -d. -f1-3)
+          #   best["$eng"]="$tag"
+          # done
+          # latest=""
+          # for eng in $(printf '%s\n' "${!best[@]}" | sort -V); do
+          #   tag="${best[$eng]}"
+          #   src=$(mktemp -d)
+          #   git archive "$tag" | tar -x -C "$src"
+          #   # Skip versions predating the YARD doc setup (would render near-empty).
+          #   if [ ! -f "$src/lib/ironcalc/native_methods.rb" ]; then
+          #     echo "skipping $eng (highest tag $tag has no doc setup)"; continue
+          #   fi
+          #   (cd "$src" && yard doc) && cp -r "$src/doc" "site/$eng"
+          #   latest=$eng
+          # done
+          # if [ -z "$latest" ]; then echo "no documentable versions found"; exit 1; fi
+          # cp -r "site/$latest/." site/   # root = highest engine version
+          # {
+          #   echo '<!doctype html><meta charset="utf-8"><title>IronCalc Ruby docs</title>'
+          #   echo '<h1>IronCalc Ruby — documentation</h1><ul>'
+          #   for eng in $(printf '%s\n' "${!best[@]}" | sort -Vr); do
+          #     [ -d "site/$eng" ] && echo "<li><a href=\"./$eng/\">$eng</a></li>"
+          #   done
+          #   echo '</ul>'
+          # } > site/versions.html
+
+      - uses: actions/configure-pages@v5
+        if: github.ref == 'refs/heads/main'
+      - uses: actions/upload-pages-artifact@v3
+        if: github.ref == 'refs/heads/main'
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

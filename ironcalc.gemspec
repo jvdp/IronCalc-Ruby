@@ -1,5 +1,9 @@
 require_relative "lib/ironcalc/version"
 
+# Docs are published per IronCalc engine version (the first three version
+# segments, e.g. 0.7.1.5 -> 0.7.1), so link to that subpath.
+engine_version = IronCalc::VERSION.split(".").first(3).join(".")
+
 Gem::Specification.new do |spec|
   spec.name          = "ironcalc"
   spec.version       = IronCalc::VERSION
@@ -19,7 +23,7 @@ Gem::Specification.new do |spec|
     "source_code_uri" => "https://github.com/jvdp/IronCalc-Ruby",
     "bug_tracker_uri" => "https://github.com/jvdp/IronCalc-Ruby/issues",
     "changelog_uri" => "https://github.com/jvdp/IronCalc-Ruby/blob/main/CHANGELOG.md",
-    "documentation_uri" => "https://www.rubydoc.info/gems/ironcalc/",
+    "documentation_uri" => "https://jvdp.github.io/IronCalc-Ruby/#{engine_version}/",
     "rubygems_mfa_required" => "true"
   }
 
