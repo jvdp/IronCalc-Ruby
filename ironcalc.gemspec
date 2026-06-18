@@ -9,18 +9,18 @@ Gem::Specification.new do |spec|
     manipulate xlsx files: manage sheets, set and read cell values, and
     evaluate formulas.
   DESC
-  spec.homepage      = "https://github.com/jvdp/IronCalc-Ruby"
-  spec.license       = "MIT OR Apache-2.0"
+  spec.homepage      = "https://www.ironcalc.com/"
+  spec.licenses      = ["MIT", "Apache-2.0"]
 
   spec.author        = "jvdp"
   spec.email         = "jaap@vage-ideeen.nl"
 
   spec.metadata = {
-    "homepage_uri" => "https://www.ironcalc.com/",
     "source_code_uri" => "https://github.com/jvdp/IronCalc-Ruby",
     "bug_tracker_uri" => "https://github.com/jvdp/IronCalc-Ruby/issues",
-    "changelog_uri" => "https://raw.githubusercontent.com/jvdp/IronCalc-Ruby/refs/heads/main/CHANGELOG.md",
-    "documentation_uri" => "https://www.rubydoc.info/gems/ironcalc/"
+    "changelog_uri" => "https://github.com/jvdp/IronCalc-Ruby/blob/main/CHANGELOG.md",
+    "documentation_uri" => "https://www.rubydoc.info/gems/ironcalc/",
+    "rubygems_mfa_required" => "true"
   }
 
   spec.files         = Dir["*.{md,txt}", "{ext,lib}/**/*", "Cargo.*", "LICENSE-*", ".yardopts"]
