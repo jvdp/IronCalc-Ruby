@@ -1,7 +1,5 @@
-# `rake doc` — generates HTML API docs into doc/ using YARD (config in .yardopts).
-# This is what rubydoc.info builds from once the gem is published; the output can
-# later be copied to ironcalc.dev. YARD is a development dependency, so guard the
-# task so the Rakefile still loads without it installed.
+# `rake doc` — generate HTML API docs into doc/ via YARD (config in .yardopts).
+# YARD is a dev dependency, so guard the task so the Rakefile loads without it.
 begin
   require "yard"
 

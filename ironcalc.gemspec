@@ -1,7 +1,6 @@
 require_relative "lib/ironcalc/version"
 
-# Docs are published per IronCalc engine version (the first three version
-# segments, e.g. 0.7.1.5 -> 0.7.1), so link to that subpath.
+# Docs are published per engine version (first 3 segments, e.g. 0.7.1.5 -> 0.7.1).
 engine_version = IronCalc::VERSION.split(".").first(3).join(".")
 
 Gem::Specification.new do |spec|

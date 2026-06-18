@@ -1,15 +1,8 @@
-# Resolves the IronCalc engine's own xlsx test fixtures, which ship inside the
-# published `ironcalc` crate and are downloaded into the Cargo registry as part
-# of building this extension. We do NOT vendor copies: resolving them from the
-# dependency means the fixtures are always pinned to the exact engine version we
-# build against (see Cargo.toml `xlsx = { package = "ironcalc", ... }`), so they
-# move in lockstep on a dependency bump instead of drifting.
-#
-# The location is `<crate source>/tests`, found via `cargo metadata` (the
-# registry path contains a version- and hash-specific component, so it must not
-# be hard-coded). If the crate source can't be found (e.g. `cargo` unavailable or
-# the registry not yet populated), `dir` returns nil and the fixture-backed tests
-# skip with an explanatory message rather than failing.
+# Resolves the IronCalc engine's xlsx test fixtures from the published `ironcalc`
+# crate in the Cargo registry (located via `cargo metadata`, since the registry
+# path is version/hash-specific), so they stay pinned to the engine version we
+# build against rather than being vendored. Returns nil / [] when the crate
+# source isn't present, so fixture-backed tests skip instead of failing.
 require "json"
 require "open3"
 
