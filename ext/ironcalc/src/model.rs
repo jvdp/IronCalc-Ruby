@@ -1,13 +1,48 @@
 use std::cell::RefCell;
 
 use magnus::value::StaticSymbol;
-use magnus::{RArray, RString, Ruby};
+use magnus::{IntoValue, RArray, RString, Ruby, Value};
 
-use xlsx::base::types::Style;
+use xlsx::base::expressions::types::Area;
+use xlsx::base::types::{Color, Style};
 use xlsx::base::Model as CoreModel;
 use xlsx::export::{save_to_icalc, save_to_xlsx};
 
 use crate::error::workbook_error;
+
+/// A single-cell `Area`, for the range-based engine operations.
+pub(crate) fn cell_area(sheet: u32, row: i32, column: i32) -> Area {
+    Area {
+        sheet,
+        row,
+        column,
+        width: 1,
+        height: 1,
+    }
+}
+
+/// Maps an engine `Color` to the shape it takes in serialized styles: a hex
+/// String, a `[theme, tint]` pair, or nil.
+pub(crate) fn color_to_ruby(ruby: &Ruby, color: &Color) -> Value {
+    match color {
+        Color::Rgb(hex) => hex.clone().into_value_with(ruby),
+        Color::Theme(theme, tint) => {
+            let array = ruby.ary_new();
+            let _ = array.push(*theme);
+            let _ = array.push(*tint);
+            array.into_value_with(ruby)
+        }
+        Color::None => ruby.qnil().into_value_with(ruby),
+    }
+}
+
+/// A hex String, or nil for no color.
+pub(crate) fn parse_color(color: Option<String>) -> Color {
+    match color {
+        Some(hex) => Color::Rgb(hex),
+        None => Color::None,
+    }
+}
 
 /// Maps an engine `CellType` to a snake_case name, matching the names of the
 /// Python binding's `CellType` enum variants. Returned to Ruby as a Symbol.
@@ -80,7 +115,7 @@ impl Model {
     ) -> Result<(), magnus::Error> {
         self.model
             .borrow_mut()
-            .cell_clear_contents(sheet, row, column)
+            .range_clear_contents(&cell_area(sheet, row, column))
             .map_err(workbook_error)
     }
 
@@ -271,16 +306,16 @@ impl Model {
             let _ = hash.aset(ruby.sym_new("name"), sheet.name);
             let _ = hash.aset(ruby.sym_new("state"), sheet.state);
             let _ = hash.aset(ruby.sym_new("sheet_id"), sheet.sheet_id);
-            let _ = hash.aset(ruby.sym_new("color"), sheet.color);
+            let _ = hash.aset(ruby.sym_new("color"), color_to_ruby(ruby, &sheet.color));
             let _ = array.push(hash);
         }
         array
     }
 
-    pub fn set_sheet_color(&self, sheet: u32, color: String) -> Result<(), magnus::Error> {
+    pub fn set_sheet_color(&self, sheet: u32, color: Option<String>) -> Result<(), magnus::Error> {
         self.model
             .borrow_mut()
-            .set_sheet_color(sheet, &color)
+            .set_sheet_color(sheet, &parse_color(color))
             .map_err(workbook_error)
     }
 

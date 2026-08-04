@@ -3,12 +3,11 @@ use std::cell::RefCell;
 use magnus::value::StaticSymbol;
 use magnus::{RArray, RString, Ruby};
 
-use xlsx::base::expressions::types::Area;
 use xlsx::base::UserModel as CoreUserModel;
 use xlsx::export::{save_to_icalc, save_to_xlsx};
 
 use crate::error::workbook_error;
-use crate::model::cell_type_to_str;
+use crate::model::{cell_area, cell_type_to_str, color_to_ruby, parse_color};
 
 /// The higher-level, recommended IronCalc API. Wraps [`CoreUserModel`], which
 /// **auto-evaluates after every action** and records diffs for collaboration
@@ -27,17 +26,6 @@ impl UserModel {
     pub fn new(model: CoreUserModel<'static>) -> Self {
         UserModel {
             model: RefCell::new(model),
-        }
-    }
-
-    /// A single-cell `Area`, for the range-based engine operations below.
-    fn cell_area(sheet: u32, row: i32, column: i32) -> Area {
-        Area {
-            sheet,
-            row,
-            column,
-            width: 1,
-            height: 1,
         }
     }
 
@@ -118,7 +106,7 @@ impl UserModel {
     ) -> Result<(), magnus::Error> {
         self.model
             .borrow_mut()
-            .range_clear_contents(&Self::cell_area(sheet, row, column))
+            .range_clear_contents(&cell_area(sheet, row, column))
             .map_err(workbook_error)
     }
 
@@ -194,7 +182,7 @@ impl UserModel {
     ) -> Result<(), magnus::Error> {
         self.model
             .borrow_mut()
-            .update_range_style(&Self::cell_area(sheet, row, column), &style_path, &value)
+            .update_range_style(&cell_area(sheet, row, column), &style_path, &value)
             .map_err(workbook_error)
     }
 
@@ -314,16 +302,16 @@ impl UserModel {
             let _ = hash.aset(ruby.sym_new("name"), sheet.name);
             let _ = hash.aset(ruby.sym_new("state"), sheet.state);
             let _ = hash.aset(ruby.sym_new("sheet_id"), sheet.sheet_id);
-            let _ = hash.aset(ruby.sym_new("color"), sheet.color);
+            let _ = hash.aset(ruby.sym_new("color"), color_to_ruby(ruby, &sheet.color));
             let _ = array.push(hash);
         }
         array
     }
 
-    pub fn set_sheet_color(&self, sheet: u32, color: String) -> Result<(), magnus::Error> {
+    pub fn set_sheet_color(&self, sheet: u32, color: Option<String>) -> Result<(), magnus::Error> {
         self.model
             .borrow_mut()
-            .set_sheet_color(sheet, &color)
+            .set_sheet_color(sheet, &parse_color(color))
             .map_err(workbook_error)
     }
 

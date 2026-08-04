@@ -23,11 +23,11 @@ module FixturesHelper
       File.join(d, *parts)
     end
 
-    # All calc_tests/*.xlsx fixtures (the formula suite), excluding the
-    # `.disabled` files the engine intentionally turns off. [] if unavailable.
+    # Every calc_tests fixture (the formula suite). They are grouped into
+    # per-function-category subdirectories, so this recurses. [] if unavailable.
     def calc_test_files
       d = dir or return []
-      Dir[File.join(d, "calc_tests", "*.xlsx")].sort
+      Dir[File.join(d, "calc_tests", "**", "*.xlsx")].sort
     end
 
     private
