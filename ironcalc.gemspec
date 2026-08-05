@@ -26,7 +26,7 @@ Gem::Specification.new do |spec|
     "rubygems_mfa_required" => "true"
   }
 
-  spec.files         = Dir["*.{md,txt}", "{ext,lib}/**/*", "Cargo.*", "LICENSE-*", ".yardopts"]
+  spec.files         = Dir["README.md", "CHANGELOG.md", "{ext,lib}/**/*", "Cargo.*", "LICENSE-*", ".yardopts"]
     .reject { |f| f.match?(/\.(so|bundle|dll)$/) }
   spec.require_path  = "lib"
   spec.extensions    = ["ext/ironcalc/extconf.rb"]
