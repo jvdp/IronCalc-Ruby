@@ -4,6 +4,66 @@ require "json"
 # native boundary as JSON; here we expose them as plain Ruby hashes, mirroring
 # the Node binding's serde-based approach.
 module IronCalc
+  # Defined names. Prepended to {Model} and {UserModel} so `super` reaches the
+  # native methods, which take `scope` positionally in engine order.
+  #
+  # A `scope` of `nil` is workbook-scoped; an Integer is a 0-based sheet index.
+  module DefinedNames
+    # Defined names as an Array of Hashes with Symbol keys:
+    #   [{ name: "_key", scope: nil, formula: "Sheet1!$C$1" }, ...]
+    #
+    # @return [Array<Hash>]
+    def defined_names
+      get_defined_name_list
+    end
+
+    # Adds a defined name. Raises if the name is not a valid identifier (e.g.
+    # `"A1"`, which parses as a cell reference), already exists in that scope,
+    # or the formula does not parse.
+    #
+    # @param name [String]
+    # @param formula [String] e.g. `"Sheet1!$C$1"`
+    # @param scope [Integer, nil] 0-based sheet index, or nil for workbook scope
+    # @return [void]
+    # @raise [IronCalc::Error]
+    def new_defined_name(name, formula, scope: nil)
+      super(name, scope, formula)
+    end
+
+    # Renames, re-scopes and/or repoints an existing defined name.
+    #
+    # @param name [String] the current name
+    # @param new_name [String]
+    # @param new_formula [String]
+    # @param scope [Integer, nil] the current scope
+    # @param new_scope [Integer, nil]
+    # @return [void]
+    # @raise [IronCalc::Error]
+    def update_defined_name(name, new_name, new_formula, scope: nil, new_scope: nil)
+      super(name, scope, new_name, new_scope, new_formula)
+    end
+
+    # Whether {#new_defined_name} would succeed for these arguments.
+    #
+    # @param name [String]
+    # @param formula [String]
+    # @param scope [Integer, nil]
+    # @return [Boolean]
+    def is_valid_defined_name(name, formula, scope: nil)
+      super(name, scope, formula)
+    end
+
+    # Deletes a defined name. Raises if no name matches in that scope.
+    #
+    # @param name [String]
+    # @param scope [Integer, nil]
+    # @return [void]
+    # @raise [IronCalc::Error]
+    def delete_defined_name(name, scope: nil)
+      super(name, scope)
+    end
+  end
+
   class Model
     # Returns the cell style as a Hash with string keys (snake_case, matching the
     # engine's serde field names), e.g.
@@ -78,4 +138,7 @@ module IronCalc
       end
     end
   end
+
+  Model.prepend(DefinedNames)
+  UserModel.prepend(DefinedNames)
 end

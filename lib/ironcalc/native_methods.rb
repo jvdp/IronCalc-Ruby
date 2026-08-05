@@ -276,6 +276,12 @@ module IronCalc
     #   @return [Array(Integer, Integer, Integer, Integer)]
     #   @raise [IronCalc::Error]
 
+    # @!method get_defined_name_list
+    #   Defined names as one Hash per name, with symbol keys +:name+, +:scope+
+    #   (0-based sheet index, or nil for workbook scope) and +:formula+.
+    #   Also available as {DefinedNames#defined_names}.
+    #   @return [Array<Hash>]
+
     # Without a real def, the @!method stubs above leak to the IronCalc module
     # (yardoc bug lsegal/yard#1207). Doc-only file, never loaded at runtime.
     # @!visibility private
@@ -503,6 +509,12 @@ module IronCalc
     #   @param sheet [Integer]
     #   @return [Array(Integer, Integer, Integer, Integer)]
     #   @raise [IronCalc::Error]
+
+    # @!method get_defined_name_list
+    #   Defined names as one Hash per name, with symbol keys +:name+, +:scope+
+    #   (0-based sheet index, or nil for workbook scope) and +:formula+.
+    #   Also available as {DefinedNames#defined_names}.
+    #   @return [Array<Hash>]
 
     # Anchors the @!method stubs above — see {Model}.
     # @!visibility private

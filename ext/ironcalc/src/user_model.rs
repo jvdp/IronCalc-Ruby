@@ -7,7 +7,9 @@ use xlsx::base::UserModel as CoreUserModel;
 use xlsx::export::{save_to_icalc, save_to_xlsx};
 
 use crate::error::workbook_error;
-use crate::model::{cell_area, cell_type_to_str, color_to_ruby, parse_color};
+use crate::model::{
+    cell_area, cell_type_to_str, color_to_ruby, defined_names_to_ruby, parse_color,
+};
 
 /// The higher-level, recommended IronCalc API. Wraps [`CoreUserModel`], which
 /// **auto-evaluates after every action** and records diffs for collaboration
@@ -350,4 +352,57 @@ impl UserModel {
             dimension.max_column,
         ))
     }
+    // Defined names ---------------------------------------------------------
+
+    /// Defined names as `[{ name:, scope:, formula: }, ...]`. `scope` is the
+    /// 0-based sheet index for sheet-scoped names, `nil` for workbook-scoped ones.
+    pub fn get_defined_name_list(ruby: &Ruby, rb_self: &Self) -> RArray {
+        // The user model's own reader; the raw model's bypasses the diff queue.
+        defined_names_to_ruby(ruby, rb_self.model.borrow().get_defined_name_list())
+    }
+
+    pub fn new_defined_name(
+        &self,
+        name: String,
+        scope: Option<u32>,
+        formula: String,
+    ) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .new_defined_name(&name, scope, &formula)
+            .map_err(workbook_error)
+    }
+
+    pub fn update_defined_name(
+        &self,
+        name: String,
+        scope: Option<u32>,
+        new_name: String,
+        new_scope: Option<u32>,
+        new_formula: String,
+    ) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .update_defined_name(&name, scope, &new_name, new_scope, &new_formula)
+            .map_err(workbook_error)
+    }
+
+    pub fn delete_defined_name(
+        &self,
+        name: String,
+        scope: Option<u32>,
+    ) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .delete_defined_name(&name, scope)
+            .map_err(workbook_error)
+    }
+
+/// Whether `new_defined_name` would succeed; see `Model#is_valid_defined_name`.
+pub fn is_valid_defined_name(&self, name: String, scope: Option<u32>, formula: String) -> bool {
+    self.model
+        .borrow_mut()
+        .is_valid_defined_name(&name, scope, &formula)
+        .is_ok()
+}
 }

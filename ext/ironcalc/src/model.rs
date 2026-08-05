@@ -44,6 +44,28 @@ pub(crate) fn parse_color(color: Option<String>) -> Color {
     }
 }
 
+/// Formats defined names as `[{ name:, scope:, formula: }, ...]`. Each class
+/// passes the result of its own engine call.
+pub(crate) fn defined_names_to_ruby(
+    ruby: &Ruby,
+    names: impl IntoIterator<Item = (String, Option<u32>, String)>,
+) -> RArray {
+    let array = ruby.ary_new();
+    let (name_key, scope_key, formula_key) = (
+        ruby.sym_new("name"),
+        ruby.sym_new("scope"),
+        ruby.sym_new("formula"),
+    );
+    for (name, scope, formula) in names {
+        let hash = ruby.hash_new();
+        let _ = hash.aset(name_key, name);
+        let _ = hash.aset(scope_key, scope);
+        let _ = hash.aset(formula_key, formula);
+        let _ = array.push(hash);
+    }
+    array
+}
+
 /// Maps an engine `CellType` to a snake_case name, matching the names of the
 /// Python binding's `CellType` enum variants. Returned to Ruby as a Symbol.
 pub(crate) fn cell_type_to_str(cell_type: xlsx::base::types::CellType) -> &'static str {
@@ -356,6 +378,62 @@ impl Model {
             dimension.min_column,
             dimension.max_column,
         ))
+    }
+
+    // Defined names ---------------------------------------------------------
+
+    /// Defined names as `[{ name:, scope:, formula: }, ...]`. `scope` is the
+    /// 0-based sheet index for sheet-scoped names, `nil` for workbook-scoped
+    /// ones (the engine stores a sheet id; it is mapped back to an index here).
+    pub fn get_defined_name_list(ruby: &Ruby, rb_self: &Self) -> RArray {
+        defined_names_to_ruby(ruby, rb_self.model.borrow().get_defined_name_list())
+    }
+
+    pub fn new_defined_name(
+        &self,
+        name: String,
+        scope: Option<u32>,
+        formula: String,
+    ) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .new_defined_name(&name, scope, &formula)
+            .map_err(workbook_error)
+    }
+
+    pub fn update_defined_name(
+        &self,
+        name: String,
+        scope: Option<u32>,
+        new_name: String,
+        new_scope: Option<u32>,
+        new_formula: String,
+    ) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .update_defined_name(&name, scope, &new_name, new_scope, &new_formula)
+            .map_err(workbook_error)
+    }
+
+    pub fn delete_defined_name(
+        &self,
+        name: String,
+        scope: Option<u32>,
+    ) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .delete_defined_name(&name, scope)
+            .map_err(workbook_error)
+    }
+
+    /// Whether `new_defined_name` would succeed. The engine returns the reason
+    /// as an error; here it collapses to a boolean, so callers wanting the
+    /// reason should just attempt the call and rescue.
+    pub fn is_valid_defined_name(&self, name: String, scope: Option<u32>, formula: String) -> bool {
+        self.model
+            .borrow_mut()
+            .is_valid_defined_name(&name, scope, &formula)
+            .is_ok()
     }
 
     #[allow(clippy::panic)]

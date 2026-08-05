@@ -42,6 +42,31 @@ diffs = um.flush_send_queue             # binary diff to send to peers
 Coordinates: `sheet` is a 0-based index; `row` and `column` are 1-based. Styles
 are exchanged as plain Ruby hashes via `get_cell_style` / `set_cell_style`.
 
+### Defined names
+
+Named ranges, on both APIs. `scope` is a 0-based sheet index, or `nil` (the
+default) for a workbook-scoped name. They survive both an xlsx round trip and
+editing in Excel/LibreOffice, so they are also a place to keep your own
+metadata about a sheet.
+
+```ruby
+model.new_defined_name("answer", "Sheet1!$C$1")
+model.set_user_input(0, 1, 1, "=answer")
+model.evaluate
+model.get_formatted_cell_value(0, 1, 1)  # => the value of C1
+
+model.defined_names
+# => [{ name: "answer", scope: nil, formula: "Sheet1!$C$1" }]
+
+model.update_defined_name("answer", "result", "Sheet1!$D$1")
+model.delete_defined_name("result")
+```
+
+`is_valid_defined_name(name, formula, scope: nil)` reports whether
+`new_defined_name` would succeed; the name must be an identifier (`"A1"` is
+rejected — it parses as a cell reference), unused in that scope, and the formula
+must parse. On `UserModel` all four mutations are undoable.
+
 ### Top-level methods
 
 `create`, `load_from_xlsx`, `load_from_icalc`, `load_from_bytes`,

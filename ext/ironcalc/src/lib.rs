@@ -187,6 +187,24 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     model_class.define_method("delete_sheet", method!(Model::delete_sheet, 1))?;
     model_class.define_method("rename_sheet", method!(Model::rename_sheet, 2))?;
     model_class.define_method("get_sheet_dimensions", method!(Model::get_sheet_dimensions, 1))?;
+    // Defined names
+    model_class.define_method(
+        "get_defined_name_list",
+        method!(Model::get_defined_name_list, 0),
+    )?;
+    model_class.define_method("new_defined_name", method!(Model::new_defined_name, 3))?;
+    model_class.define_method(
+        "update_defined_name",
+        method!(Model::update_defined_name, 5),
+    )?;
+    model_class.define_method(
+        "delete_defined_name",
+        method!(Model::delete_defined_name, 2),
+    )?;
+    model_class.define_method(
+        "is_valid_defined_name",
+        method!(Model::is_valid_defined_name, 3),
+    )?;
     model_class.define_method("test_panic", method!(Model::test_panic, 0))?;
 
     // User API: IronCalc::UserModel
@@ -265,6 +283,24 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
         method!(UserModel::get_sheet_dimensions, 1),
     )?;
     user_model_class.define_method("to_bytes", method!(UserModel::to_bytes, 0))?;
+    // Defined names
+    user_model_class.define_method(
+        "get_defined_name_list",
+        method!(UserModel::get_defined_name_list, 0),
+    )?;
+    user_model_class.define_method("new_defined_name", method!(UserModel::new_defined_name, 3))?;
+    user_model_class.define_method(
+        "update_defined_name",
+        method!(UserModel::update_defined_name, 5),
+    )?;
+    user_model_class.define_method(
+        "delete_defined_name",
+        method!(UserModel::delete_defined_name, 2),
+    )?;
+    user_model_class.define_method(
+        "is_valid_defined_name",
+        method!(UserModel::is_valid_defined_name, 3),
+    )?;
 
     Ok(())
 }
