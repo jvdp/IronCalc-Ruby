@@ -1,16 +1,17 @@
 use std::cell::RefCell;
 
 use magnus::value::StaticSymbol;
-use magnus::{IntoValue, RArray, RString, Ruby, Value};
+use magnus::value::ReprValue;
+use magnus::{IntoValue, RArray, RString, Ruby, TryConvert, Value};
 
+use xlsx::base::cell::CellValue;
 use xlsx::base::expressions::types::Area;
-use xlsx::base::types::{Color, Style};
+use xlsx::base::types::{Color, SheetState, Style};
 use xlsx::base::Model as CoreModel;
 use xlsx::export::{save_to_icalc, save_to_xlsx};
 
 use crate::error::workbook_error;
 
-/// A single-cell `Area`, for the range-based engine operations.
 pub(crate) fn cell_area(sheet: u32, row: i32, column: i32) -> Area {
     Area {
         sheet,
@@ -21,8 +22,6 @@ pub(crate) fn cell_area(sheet: u32, row: i32, column: i32) -> Area {
     }
 }
 
-/// Maps an engine `Color` to the shape it takes in serialized styles: a hex
-/// String, a `[theme, tint]` pair, or nil.
 pub(crate) fn color_to_ruby(ruby: &Ruby, color: &Color) -> Value {
     match color {
         Color::Rgb(hex) => hex.clone().into_value_with(ruby),
@@ -36,16 +35,33 @@ pub(crate) fn color_to_ruby(ruby: &Ruby, color: &Color) -> Value {
     }
 }
 
-/// A hex String, or nil for no color.
-pub(crate) fn parse_color(color: Option<String>) -> Color {
-    match color {
-        Some(hex) => Color::Rgb(hex),
-        None => Color::None,
+/// Accepts the same shapes `color_to_ruby` produces, so a color read from one
+/// sheet can be written to another.
+pub(crate) fn parse_color(color: Value) -> Result<Color, magnus::Error> {
+    if color.is_nil() {
+        return Ok(Color::None);
+    }
+    if let Ok(hex) = String::try_convert(color) {
+        return Ok(Color::Rgb(hex));
+    }
+    match <(i32, f64)>::try_convert(color) {
+        Ok((theme, tint)) => Ok(Color::Theme(theme, tint)),
+        Err(_) => Err(workbook_error(
+            "Color must be a \"#RRGGBB\" String, a [theme, tint] pair, or nil",
+        )),
     }
 }
 
-/// Formats defined names as `[{ name:, scope:, formula: }, ...]`. Each class
-/// passes the result of its own engine call.
+fn cell_value_to_ruby(ruby: &Ruby, value: CellValue) -> Value {
+    match value {
+        CellValue::None => ruby.qnil().into_value_with(ruby),
+        CellValue::String(s) => s.into_value_with(ruby),
+        CellValue::Number(n) => n.into_value_with(ruby),
+        CellValue::Boolean(b) => b.into_value_with(ruby),
+    }
+}
+
+/// Each class passes the result of its own engine call.
 pub(crate) fn defined_names_to_ruby(
     ruby: &Ruby,
     names: impl IntoIterator<Item = (String, Option<u32>, String)>,
@@ -66,8 +82,18 @@ pub(crate) fn defined_names_to_ruby(
     array
 }
 
-/// Maps an engine `CellType` to a snake_case name, matching the names of the
-/// Python binding's `CellType` enum variants. Returned to Ruby as a Symbol.
+fn parse_sheet_state(state: &str) -> Result<SheetState, magnus::Error> {
+    match state {
+        "visible" => Ok(SheetState::Visible),
+        "hidden" => Ok(SheetState::Hidden),
+        "veryHidden" | "very_hidden" => Ok(SheetState::VeryHidden),
+        other => Err(workbook_error(format!(
+            "Invalid sheet state: '{other}' (expected visible, hidden or veryHidden)"
+        ))),
+    }
+}
+
+/// Names match the Python binding's `CellType` variants.
 pub(crate) fn cell_type_to_str(cell_type: xlsx::base::types::CellType) -> &'static str {
     use xlsx::base::types::CellType::*;
     match cell_type {
@@ -80,8 +106,6 @@ pub(crate) fn cell_type_to_str(cell_type: xlsx::base::types::CellType) -> &'stat
     }
 }
 
-/// The raw IronCalc API. Wraps [`CoreModel`]; you must call `evaluate` yourself
-/// after setting inputs.
 #[magnus::wrap(class = "IronCalc::Model", free_immediately, size)]
 pub struct Model {
     pub model: RefCell<CoreModel<'static>>,
@@ -141,6 +165,65 @@ impl Model {
             .map_err(workbook_error)
     }
 
+    pub fn clear_cell_all(&self, sheet: u32, row: i32, column: i32) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .range_clear_all(&cell_area(sheet, row, column))
+            .map_err(workbook_error)
+    }
+
+    pub fn update_cell_with_text(
+        &self,
+        sheet: u32,
+        row: i32,
+        column: i32,
+        value: String,
+    ) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .update_cell_with_text(sheet, row, column, &value)
+            .map_err(workbook_error)
+    }
+
+    pub fn update_cell_with_number(
+        &self,
+        sheet: u32,
+        row: i32,
+        column: i32,
+        value: f64,
+    ) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .update_cell_with_number(sheet, row, column, value)
+            .map_err(workbook_error)
+    }
+
+    pub fn update_cell_with_bool(
+        &self,
+        sheet: u32,
+        row: i32,
+        column: i32,
+        value: bool,
+    ) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .update_cell_with_bool(sheet, row, column, value)
+            .map_err(workbook_error)
+    }
+
+    pub fn update_cell_with_formula(
+        &self,
+        sheet: u32,
+        row: i32,
+        column: i32,
+        formula: String,
+    ) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .update_cell_with_formula(sheet, row, column, formula)
+            .map_err(workbook_error)
+    }
+
     // Get values ------------------------------------------------------------
 
     pub fn get_cell_content(
@@ -182,6 +265,71 @@ impl Model {
             .map_err(workbook_error)
     }
 
+    pub fn get_cell_value_by_index(
+        ruby: &Ruby,
+        rb_self: &Self,
+        sheet: u32,
+        row: i32,
+        column: i32,
+    ) -> Result<Value, magnus::Error> {
+        rb_self
+            .model
+            .borrow()
+            .get_cell_value_by_index(sheet, row, column)
+            .map(|v| cell_value_to_ruby(ruby, v))
+            .map_err(workbook_error)
+    }
+
+    pub fn get_cell_value_by_ref(
+        ruby: &Ruby,
+        rb_self: &Self,
+        cell_ref: String,
+    ) -> Result<Value, magnus::Error> {
+        rb_self
+            .model
+            .borrow()
+            .get_cell_value_by_ref(&cell_ref)
+            .map(|v| cell_value_to_ruby(ruby, v))
+            .map_err(workbook_error)
+    }
+
+    pub fn get_cell_formula(
+        &self,
+        sheet: u32,
+        row: i32,
+        column: i32,
+    ) -> Result<Option<String>, magnus::Error> {
+        self.model
+            .borrow()
+            .get_cell_formula(sheet, row, column)
+            .map_err(workbook_error)
+    }
+
+    pub fn is_empty_cell(&self, sheet: u32, row: i32, column: i32) -> Result<bool, magnus::Error> {
+        self.model
+            .borrow()
+            .is_empty_cell(sheet, row, column)
+            .map_err(workbook_error)
+    }
+
+    pub fn get_all_cells(ruby: &Ruby, rb_self: &Self) -> RArray {
+        let array = ruby.ary_new();
+        // Interned once: this loop is O(cells).
+        let (sheet_key, row_key, column_key) = (
+            ruby.sym_new("sheet"),
+            ruby.sym_new("row"),
+            ruby.sym_new("column"),
+        );
+        for cell in rb_self.model.borrow().get_all_cells() {
+            let hash = ruby.hash_new();
+            let _ = hash.aset(sheet_key, cell.index);
+            let _ = hash.aset(row_key, cell.row);
+            let _ = hash.aset(column_key, cell.column);
+            let _ = array.push(hash);
+        }
+        array
+    }
+
     // Styles (serialized as JSON; the Ruby layer exposes them as hashes) -----
 
     pub fn set_cell_style_json(
@@ -210,6 +358,96 @@ impl Model {
             .get_style_for_cell(sheet, row, column)
             .map_err(workbook_error)?;
         serde_json::to_string(&style).map_err(workbook_error)
+    }
+
+    pub fn copy_cell_style(
+        &self,
+        source_sheet: u32,
+        source_row: i32,
+        source_column: i32,
+        destination_sheet: u32,
+        destination_row: i32,
+        destination_column: i32,
+    ) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .copy_cell_style(
+                (source_sheet, source_row, source_column),
+                (destination_sheet, destination_row, destination_column),
+            )
+            .map_err(workbook_error)
+    }
+
+    // Row / column styles (the default style for a whole row or column) ------
+
+    pub fn get_column_style_json(
+        &self,
+        sheet: u32,
+        column: i32,
+    ) -> Result<Option<String>, magnus::Error> {
+        let style = self
+            .model
+            .borrow()
+            .get_column_style(sheet, column)
+            .map_err(workbook_error)?;
+        style
+            .map(|s| serde_json::to_string(&s).map_err(workbook_error))
+            .transpose()
+    }
+
+    pub fn get_row_style_json(
+        &self,
+        sheet: u32,
+        row: i32,
+    ) -> Result<Option<String>, magnus::Error> {
+        let style = self
+            .model
+            .borrow()
+            .get_row_style(sheet, row)
+            .map_err(workbook_error)?;
+        style
+            .map(|s| serde_json::to_string(&s).map_err(workbook_error))
+            .transpose()
+    }
+
+    pub fn set_column_style_json(
+        &self,
+        sheet: u32,
+        column: i32,
+        style_json: String,
+    ) -> Result<(), magnus::Error> {
+        let style: Style = serde_json::from_str(&style_json).map_err(workbook_error)?;
+        self.model
+            .borrow_mut()
+            .set_column_style(sheet, column, &style)
+            .map_err(workbook_error)
+    }
+
+    pub fn set_row_style_json(
+        &self,
+        sheet: u32,
+        row: i32,
+        style_json: String,
+    ) -> Result<(), magnus::Error> {
+        let style: Style = serde_json::from_str(&style_json).map_err(workbook_error)?;
+        self.model
+            .borrow_mut()
+            .set_row_style(sheet, row, &style)
+            .map_err(workbook_error)
+    }
+
+    pub fn delete_column_style(&self, sheet: u32, column: i32) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .delete_column_style(sheet, column)
+            .map_err(workbook_error)
+    }
+
+    pub fn delete_row_style(&self, sheet: u32, row: i32) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .delete_row_style(sheet, row)
+            .map_err(workbook_error)
     }
 
     // Rows / columns --------------------------------------------------------
@@ -334,10 +572,10 @@ impl Model {
         array
     }
 
-    pub fn set_sheet_color(&self, sheet: u32, color: Option<String>) -> Result<(), magnus::Error> {
+    pub fn set_sheet_color(&self, sheet: u32, color: Value) -> Result<(), magnus::Error> {
         self.model
             .borrow_mut()
-            .set_sheet_color(sheet, &parse_color(color))
+            .set_sheet_color(sheet, &parse_color(color)?)
             .map_err(workbook_error)
     }
 
@@ -350,6 +588,37 @@ impl Model {
 
     pub fn new_sheet(&self) {
         self.model.borrow_mut().new_sheet();
+    }
+
+    pub fn insert_sheet(
+        &self,
+        sheet_name: String,
+        sheet_index: u32,
+        sheet_id: Option<u32>,
+    ) -> Result<(), magnus::Error> {
+        let mut model = self.model.borrow_mut();
+        // A duplicate id silently mis-scopes defined names, which resolve a
+        // sheet id to the first match.
+        if let Some(id) = sheet_id {
+            if model
+                .get_worksheets_properties()
+                .iter()
+                .any(|sheet| sheet.sheet_id == id)
+            {
+                return Err(workbook_error(format!("Sheet id {id} is already in use")));
+            }
+        }
+        model
+            .insert_sheet(&sheet_name, sheet_index, sheet_id)
+            .map_err(workbook_error)
+    }
+
+    pub fn set_sheet_state(&self, sheet: u32, state: String) -> Result<(), magnus::Error> {
+        let state = parse_sheet_state(&state)?;
+        self.model
+            .borrow_mut()
+            .set_sheet_state(sheet, state)
+            .map_err(workbook_error)
     }
 
     pub fn delete_sheet(&self, sheet: u32) -> Result<(), magnus::Error> {
@@ -366,8 +635,6 @@ impl Model {
             .map_err(workbook_error)
     }
 
-    /// Returns `[min_row, max_row, min_column, max_column]` for all non-empty
-    /// cells. An empty sheet returns `[1, 1, 1, 1]`.
     pub fn get_sheet_dimensions(&self, sheet: u32) -> Result<(i32, i32, i32, i32), magnus::Error> {
         let model = self.model.borrow();
         let worksheet = model.workbook.worksheet(sheet).map_err(workbook_error)?;
@@ -382,9 +649,6 @@ impl Model {
 
     // Defined names ---------------------------------------------------------
 
-    /// Defined names as `[{ name:, scope:, formula: }, ...]`. `scope` is the
-    /// 0-based sheet index for sheet-scoped names, `nil` for workbook-scoped
-    /// ones (the engine stores a sheet id; it is mapped back to an index here).
     pub fn get_defined_name_list(ruby: &Ruby, rb_self: &Self) -> RArray {
         defined_names_to_ruby(ruby, rb_self.model.borrow().get_defined_name_list())
     }
@@ -426,9 +690,7 @@ impl Model {
             .map_err(workbook_error)
     }
 
-    /// Whether `new_defined_name` would succeed. The engine returns the reason
-    /// as an error; here it collapses to a boolean, so callers wanting the
-    /// reason should just attempt the call and rescue.
+    /// Collapses the engine's error-with-reason to a boolean.
     pub fn is_valid_defined_name(&self, name: String, scope: Option<u32>, formula: String) -> bool {
         self.model
             .borrow_mut()

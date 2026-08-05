@@ -10,6 +10,92 @@ class UserModelTest < Minitest::Test
     @model ||= IronCalc.create_user_model("m", "en", "UTC", "en")
   end
 
+  def test_batch_recalculates_once_on_exit
+    model.batch do |m|
+      m.set_user_input(0, 1, 1, "10")
+      m.set_user_input(0, 1, 2, "=A1*2")
+    end
+
+    assert_equal "20", model.get_formatted_cell_value(0, 1, 2)
+  end
+
+  def test_batch_returns_the_block_value
+    assert_equal :done, model.batch { :done }
+  end
+
+  def test_batch_nests_without_resuming_early
+    model.batch do |outer|
+      outer.batch { |inner| inner.set_user_input(0, 1, 1, "5") }
+      # The inner block must not have resumed, so this is still unevaluated.
+      outer.set_user_input(0, 1, 2, "=A1*3")
+    end
+
+    assert_equal "15", model.get_formatted_cell_value(0, 1, 2)
+  end
+
+  def test_batch_recalculates_even_when_the_block_raises
+    assert_raises(RuntimeError) do
+      model.batch { |m|
+        m.set_user_input(0, 1, 1, "7")
+        raise "boom"
+      }
+    end
+
+    # Auto-recalculation is restored rather than left paused.
+    model.set_user_input(0, 1, 2, "=A1*2")
+    assert_equal "14", model.get_formatted_cell_value(0, 1, 2)
+  end
+
+  def test_pause_and_resume_evaluation
+    model.pause_evaluation
+    model.set_user_input(0, 1, 1, "10")
+    model.set_user_input(0, 1, 2, "=A1*2")
+    # Paused: the formula has not been evaluated yet.
+    assert_equal "#ERROR!", model.get_formatted_cell_value(0, 1, 2)
+
+    model.resume_evaluation
+    # resume does not itself recalculate.
+    model.evaluate
+    assert_equal "20", model.get_formatted_cell_value(0, 1, 2)
+  end
+
+  def test_resumed_model_auto_recalculates_again
+    model.pause_evaluation
+    model.set_user_input(0, 1, 2, "=A1*2")
+    model.resume_evaluation
+
+    model.set_user_input(0, 1, 1, "5")
+    assert_equal "10", model.get_formatted_cell_value(0, 1, 2)
+  end
+
+  def test_clear_cell_formatting_keeps_contents
+    model.set_user_input(0, 1, 1, "10")
+    model.set_cell_style(0, 1, 1, {"font" => {"b" => true}})
+
+    model.clear_cell_formatting(0, 1, 1)
+
+    assert_equal "10", model.get_formatted_cell_value(0, 1, 1)
+    refute model.get_cell_style(0, 1, 1).dig("font", "b")
+  end
+
+  def test_clear_cell_all_removes_contents_and_formatting
+    model.set_user_input(0, 1, 1, "10")
+    model.set_cell_style(0, 1, 1, {"font" => {"b" => true}})
+
+    model.clear_cell_all(0, 1, 1)
+
+    assert_equal "", model.get_formatted_cell_value(0, 1, 1)
+    refute model.get_cell_style(0, 1, 1).dig("font", "b")
+  end
+
+  def test_clear_cell_all_is_undoable
+    model.set_user_input(0, 1, 1, "10")
+    model.clear_cell_all(0, 1, 1)
+    model.undo
+
+    assert_equal "10", model.get_formatted_cell_value(0, 1, 1)
+  end
+
   def test_auto_recalculates_without_evaluate
     model.set_user_input(0, 1, 1, "10")
     model.set_user_input(0, 1, 2, "=A1*2")

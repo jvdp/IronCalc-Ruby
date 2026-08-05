@@ -106,7 +106,8 @@ module IronCalc
     #   @return [void]
 
     # @!method set_user_input(sheet, row, column, value)
-    #   Sets a cell's raw input (a literal or a formula like "=A1+1").
+    #   Sets a cell's input, parsed as a user typing it would be: +"3.5"+ is a
+    #   number, +"Hello"+ a string, +"=A1*2"+ a formula.
     #   @param sheet [Integer]
     #   @param row [Integer]
     #   @param column [Integer]
@@ -140,7 +141,8 @@ module IronCalc
     #   @raise [IronCalc::Error]
 
     # @!method get_formatted_cell_value(sheet, row, column)
-    #   Returns the cell's value formatted as displayed (number format applied).
+    #   The cell's value with its number format applied, as displayed — e.g.
+    #   +"$ 5.75"+.
     #   @param sheet [Integer]
     #   @param row [Integer]
     #   @param column [Integer]
@@ -156,6 +158,45 @@ module IronCalc
     #   @api private
     #   JSON backing for `set_cell_style`. Prefer the Hash-accepting wrapper.
     #   @return [void]
+
+    # @!method get_column_style_json(sheet, column)
+    #   @api private
+    #   JSON backing for `get_column_style`. Prefer the Hash-returning wrapper.
+    #   @return [String, nil]
+
+    # @!method get_row_style_json(sheet, row)
+    #   @api private
+    #   JSON backing for `get_row_style`. Prefer the Hash-returning wrapper.
+    #   @return [String, nil]
+
+    # @!method set_column_style_json(sheet, column, style_json)
+    #   @api private
+    #   JSON backing for `set_column_style`. Prefer the Hash-accepting wrapper.
+    #   @return [void]
+
+    # @!method set_row_style_json(sheet, row, style_json)
+    #   @api private
+    #   JSON backing for `set_row_style`. Prefer the Hash-accepting wrapper.
+    #   @return [void]
+
+    # @!method copy_cell_style(source_sheet, source_row, source_column, destination_sheet, destination_row, destination_column)
+    #   Copies one cell's style (and nothing else) onto another cell, in any sheet.
+    #   @return [void]
+    #   @raise [IronCalc::Error]
+
+    # @!method delete_column_style(sheet, column)
+    #   Removes a column's default style.
+    #   @param sheet [Integer]
+    #   @param column [Integer]
+    #   @return [void]
+    #   @raise [IronCalc::Error]
+
+    # @!method delete_row_style(sheet, row)
+    #   Removes a row's default style.
+    #   @param sheet [Integer]
+    #   @param row [Integer]
+    #   @return [void]
+    #   @raise [IronCalc::Error]
 
     # @!method insert_rows(sheet, row, row_count)
     #   Inserts +row_count+ rows before +row+.
@@ -243,8 +284,10 @@ module IronCalc
     #   @return [Array<Hash>]
 
     # @!method set_sheet_color(sheet, color)
+    #   Sets the sheet tab color.
     #   @param sheet [Integer]
-    #   @param color [String] hex color, e.g. "#FF0000"
+    #   @param color [String, Array, nil] +"#RRGGBB"+, a +[theme, tint]+ pair,
+    #     or nil to clear
     #   @return [void]
     #   @raise [IronCalc::Error]
 
@@ -276,13 +319,89 @@ module IronCalc
     #   @return [Array(Integer, Integer, Integer, Integer)]
     #   @raise [IronCalc::Error]
 
+    # Without a real def, the @!method stubs above leak to the IronCalc module
     # @!method get_defined_name_list
     #   Defined names as one Hash per name, with symbol keys +:name+, +:scope+
     #   (0-based sheet index, or nil for workbook scope) and +:formula+.
     #   Also available as {DefinedNames#defined_names}.
     #   @return [Array<Hash>]
 
-    # Without a real def, the @!method stubs above leak to the IronCalc module
+    # @!method clear_cell_all(sheet, row, column)
+    #   Clears a cell's contents *and* style, removing it entirely. Compare
+    #   +clear_cell_contents+, which keeps the style.
+    #   @return [void]
+    #   @raise [IronCalc::Error]
+
+    # @!method update_cell_with_text(sheet, row, column, value)
+    #   Stores +value+ as text without parsing it, so +"007"+ stays +"007"+ and
+    #   +"=1+1"+ stays a string. Compare +set_user_input+, which parses.
+    #   @param value [String]
+    #   @return [void]
+    #   @raise [IronCalc::Error]
+
+    # @!method update_cell_with_number(sheet, row, column, value)
+    #   Sets a number without input parsing.
+    #   @param value [Float]
+    #   @return [void]
+    #   @raise [IronCalc::Error]
+
+    # @!method update_cell_with_bool(sheet, row, column, value)
+    #   Sets a boolean without input parsing.
+    #   @param value [Boolean]
+    #   @return [void]
+    #   @raise [IronCalc::Error]
+
+    # @!method update_cell_with_formula(sheet, row, column, formula)
+    #   Stores a formula directly. Call +evaluate+ afterwards.
+    #   @param formula [String] including the leading +=+
+    #   @return [void]
+    #   @raise [IronCalc::Error]
+
+    # @!method get_cell_value_by_index(sheet, row, column)
+    #   The cell's value as a Ruby object — nil, String, Float or true/false —
+    #   unformatted. Compare +get_formatted_cell_value+, which always returns a
+    #   String, and +get_cell_content+, which returns what the user typed.
+    #
+    #   The engine has no error variant here, so an error cell comes back as the
+    #   String +"#DIV/0!"+ and is indistinguishable from that literal text. Use
+    #   +get_cell_type+, which reports +:error_value+, to tell them apart.
+    #   @return [nil, String, Float, Boolean]
+    #   @raise [IronCalc::Error]
+
+    # @!method get_cell_value_by_ref(cell_ref)
+    #   Like +get_cell_value_by_index+, addressed by an A1-style reference that
+    #   includes the sheet, e.g. +"Sheet1!C4"+.
+    #   @param cell_ref [String]
+    #   @return [nil, String, Float, Boolean]
+    #   @raise [IronCalc::Error]
+
+    # @!method get_cell_formula(sheet, row, column)
+    #   The cell's formula including the leading +=+, or nil if it is not a
+    #   formula cell.
+    #   @return [String, nil]
+    #   @raise [IronCalc::Error]
+
+    # @!method is_empty_cell(sheet, row, column)
+    #   Whether the cell holds no content.
+    #   @return [Boolean]
+    #   @raise [IronCalc::Error]
+
+    # @!method get_all_cells
+    #   Every cell the workbook holds a record for, as +{ sheet:, row:, column: }+
+    #   hashes, ordered by sheet, then row, then column. A cell emptied with
+    #   +clear_cell_contents+ keeps its record and is still listed; combine with
+    #   +is_empty_cell+ if you only want cells that have a value.
+    #   @return [Array<Hash>]
+
+    # @!method set_sheet_state(sheet, state)
+    #   Sets a sheet's visibility. Matches the +:state+ value reported by
+    #   +get_worksheets_properties+.
+    #   @param sheet [Integer]
+    #   @param state [String] +"visible"+, +"hidden"+ or +"veryHidden"+
+    #     (+"very_hidden"+ is also accepted)
+    #   @return [void]
+    #   @raise [IronCalc::Error]
+
     # (yardoc bug lsegal/yard#1207). Doc-only file, never loaded at runtime.
     # @!visibility private
     def __yard_anchor__
@@ -344,7 +463,8 @@ module IronCalc
     #   @return [Boolean]
 
     # @!method set_user_input(sheet, row, column, value)
-    #   Sets a cell's raw input (literal or formula). Triggers recalculation.
+    #   Sets a cell's input, parsed as a user typing it would be: +"3.5"+ is a
+    #   number, +"Hello"+ a string, +"=A1*2"+ a formula. Triggers recalculation.
     #   @param sheet [Integer]
     #   @param row [Integer]
     #   @param column [Integer]
@@ -377,7 +497,8 @@ module IronCalc
     #   @raise [IronCalc::Error]
 
     # @!method get_formatted_cell_value(sheet, row, column)
-    #   Returns the cell's value formatted as displayed.
+    #   The cell's value with its number format applied, as displayed — e.g.
+    #   +"$ 5.75"+.
     #   @param sheet [Integer]
     #   @param row [Integer]
     #   @param column [Integer]
@@ -483,8 +604,10 @@ module IronCalc
     #   @return [Array<Hash>]
 
     # @!method set_sheet_color(sheet, color)
+    #   Sets the sheet tab color.
     #   @param sheet [Integer]
-    #   @param color [String] hex color, e.g. "#FF0000"
+    #   @param color [String, Array, nil] +"#RRGGBB"+, a +[theme, tint]+ pair,
+    #     or nil to clear
     #   @return [void]
     #   @raise [IronCalc::Error]
 
@@ -515,6 +638,27 @@ module IronCalc
     #   (0-based sheet index, or nil for workbook scope) and +:formula+.
     #   Also available as {DefinedNames#defined_names}.
     #   @return [Array<Hash>]
+
+    # @!method clear_cell_all(sheet, row, column)
+    #   Clears a cell's contents *and* style. Undoable.
+    #   @return [void]
+    #   @raise [IronCalc::Error]
+
+    # @!method clear_cell_formatting(sheet, row, column)
+    #   Clears a cell's style, keeping its contents. Undoable.
+    #   @return [void]
+    #   @raise [IronCalc::Error]
+
+    # @!method pause_evaluation
+    #   Suspends the automatic recalculation this API does after every action —
+    #   useful when writing many cells at once. While paused, formula cells read
+    #   back as +#ERROR!+ until evaluated.
+    #   @return [void]
+
+    # @!method resume_evaluation
+    #   Re-enables automatic recalculation. Does not recalculate by itself; call
+    #   +evaluate+ afterwards to bring the workbook up to date.
+    #   @return [void]
 
     # Anchors the @!method stubs above — see {Model}.
     # @!visibility private

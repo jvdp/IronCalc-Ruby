@@ -110,6 +110,17 @@ fn test_panic() {
     panic!("This function panics for testing panic handling");
 }
 
+/// Registers native methods. The Ruby name is the Rust method name; the number
+/// after the slash is the magnus arity.
+macro_rules! define_methods {
+    // `tt`, not `literal`: `method!` needs the bare integer token.
+    ($class:expr, $ty:ident, [ $( $name:ident / $arity:tt ),* $(,)? ]) => {
+        $( $class.define_method(stringify!($name), method!($ty::$name, $arity))?; )*
+    };
+}
+
+// The grouping below is meaningful; rustfmt would split it one entry per line.
+#[rustfmt::skip]
 #[magnus::init]
 fn init(ruby: &Ruby) -> Result<(), Error> {
     let module = ruby.define_module("IronCalc")?;
@@ -139,168 +150,93 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
 
     // Raw API: IronCalc::Model
     let model_class = module.define_class("Model", ruby.class_object())?;
-    model_class.define_method("save_to_xlsx", method!(Model::save_to_xlsx, 1))?;
-    model_class.define_method("save_to_icalc", method!(Model::save_to_icalc, 1))?;
-    model_class.define_method("to_bytes", method!(Model::to_bytes, 0))?;
-    model_class.define_method("evaluate", method!(Model::evaluate, 0))?;
-    model_class.define_method("set_user_input", method!(Model::set_user_input, 4))?;
-    model_class.define_method("clear_cell_contents", method!(Model::clear_cell_contents, 3))?;
-    model_class.define_method("get_cell_content", method!(Model::get_cell_content, 3))?;
-    model_class.define_method("get_cell_type", method!(Model::get_cell_type, 3))?;
-    model_class.define_method(
-        "get_formatted_cell_value",
-        method!(Model::get_formatted_cell_value, 3),
-    )?;
-    model_class.define_method("set_cell_style_json", method!(Model::set_cell_style_json, 4))?;
-    model_class.define_method("get_cell_style_json", method!(Model::get_cell_style_json, 3))?;
-    model_class.define_method("insert_rows", method!(Model::insert_rows, 3))?;
-    model_class.define_method("insert_columns", method!(Model::insert_columns, 3))?;
-    model_class.define_method("delete_rows", method!(Model::delete_rows, 3))?;
-    model_class.define_method("delete_columns", method!(Model::delete_columns, 3))?;
-    model_class.define_method("get_column_width", method!(Model::get_column_width, 2))?;
-    model_class.define_method("get_row_height", method!(Model::get_row_height, 2))?;
-    model_class.define_method("set_column_width", method!(Model::set_column_width, 3))?;
-    model_class.define_method("set_row_height", method!(Model::set_row_height, 3))?;
-    model_class.define_method(
-        "get_frozen_columns_count",
-        method!(Model::get_frozen_columns_count, 1),
-    )?;
-    model_class.define_method(
-        "get_frozen_rows_count",
-        method!(Model::get_frozen_rows_count, 1),
-    )?;
-    model_class.define_method(
-        "set_frozen_columns_count",
-        method!(Model::set_frozen_columns_count, 2),
-    )?;
-    model_class.define_method(
-        "set_frozen_rows_count",
-        method!(Model::set_frozen_rows_count, 2),
-    )?;
-    model_class.define_method(
-        "get_worksheets_properties",
-        method!(Model::get_worksheets_properties, 0),
-    )?;
-    model_class.define_method("set_sheet_color", method!(Model::set_sheet_color, 2))?;
-    model_class.define_method("add_sheet", method!(Model::add_sheet, 1))?;
-    model_class.define_method("new_sheet", method!(Model::new_sheet, 0))?;
-    model_class.define_method("delete_sheet", method!(Model::delete_sheet, 1))?;
-    model_class.define_method("rename_sheet", method!(Model::rename_sheet, 2))?;
-    model_class.define_method("get_sheet_dimensions", method!(Model::get_sheet_dimensions, 1))?;
+    // Persistence and evaluation
+    define_methods!(model_class, Model, [
+        save_to_xlsx/1, save_to_icalc/1, to_bytes/0, evaluate/0,
+    ]);
+    // Set / clear values. The typed setters skip the parsing set_user_input does.
+    define_methods!(model_class, Model, [
+        set_user_input/4, clear_cell_contents/3, clear_cell_all/3,
+        update_cell_with_text/4, update_cell_with_number/4,
+        update_cell_with_bool/4, update_cell_with_formula/4,
+    ]);
+    // Get values
+    define_methods!(model_class, Model, [
+        get_cell_content/3, get_cell_type/3, get_formatted_cell_value/3,
+        get_cell_value_by_index/3, get_cell_value_by_ref/1, get_cell_formula/3,
+        is_empty_cell/3, get_all_cells/0,
+    ]);
+    // Styles (JSON across the boundary; the Ruby layer exposes Hashes)
+    define_methods!(model_class, Model, [
+        set_cell_style_json/4, get_cell_style_json/3, copy_cell_style/6,
+        get_column_style_json/2, set_column_style_json/3, delete_column_style/2,
+        get_row_style_json/2, set_row_style_json/3, delete_row_style/2,
+    ]);
+    // Rows / columns
+    define_methods!(model_class, Model, [
+        insert_rows/3, insert_columns/3, delete_rows/3, delete_columns/3,
+        get_column_width/2, set_column_width/3, get_row_height/2, set_row_height/3,
+    ]);
+    // Frozen rows / columns
+    define_methods!(model_class, Model, [
+        get_frozen_columns_count/1, set_frozen_columns_count/2,
+        get_frozen_rows_count/1, set_frozen_rows_count/2,
+    ]);
+    // Sheets
+    define_methods!(model_class, Model, [
+        get_worksheets_properties/0, get_sheet_dimensions/1, set_sheet_color/2,
+        add_sheet/1, new_sheet/0, insert_sheet/3, set_sheet_state/2,
+        delete_sheet/1, rename_sheet/2,
+    ]);
     // Defined names
-    model_class.define_method(
-        "get_defined_name_list",
-        method!(Model::get_defined_name_list, 0),
-    )?;
-    model_class.define_method("new_defined_name", method!(Model::new_defined_name, 3))?;
-    model_class.define_method(
-        "update_defined_name",
-        method!(Model::update_defined_name, 5),
-    )?;
-    model_class.define_method(
-        "delete_defined_name",
-        method!(Model::delete_defined_name, 2),
-    )?;
-    model_class.define_method(
-        "is_valid_defined_name",
-        method!(Model::is_valid_defined_name, 3),
-    )?;
-    model_class.define_method("test_panic", method!(Model::test_panic, 0))?;
+    define_methods!(model_class, Model, [
+        get_defined_name_list/0, new_defined_name/3, update_defined_name/5,
+        delete_defined_name/2, is_valid_defined_name/3,
+    ]);
+    define_methods!(model_class, Model, [test_panic/0]);
 
     // User API: IronCalc::UserModel
     let user_model_class = module.define_class("UserModel", ruby.class_object())?;
-    user_model_class.define_method("save_to_xlsx", method!(UserModel::save_to_xlsx, 1))?;
-    user_model_class.define_method("save_to_icalc", method!(UserModel::save_to_icalc, 1))?;
-    user_model_class.define_method(
-        "apply_external_diffs",
-        method!(UserModel::apply_external_diffs, 1),
-    )?;
-    user_model_class.define_method("flush_send_queue", method!(UserModel::flush_send_queue, 0))?;
+    // Persistence and collaboration (diff queue)
+    define_methods!(user_model_class, UserModel, [
+        save_to_xlsx/1, save_to_icalc/1, to_bytes/0,
+        apply_external_diffs/1, flush_send_queue/0,
+    ]);
     // Evaluation / history
-    user_model_class.define_method("evaluate", method!(UserModel::evaluate, 0))?;
-    user_model_class.define_method("undo", method!(UserModel::undo, 0))?;
-    user_model_class.define_method("redo", method!(UserModel::redo, 0))?;
-    user_model_class.define_method("can_undo", method!(UserModel::can_undo, 0))?;
-    user_model_class.define_method("can_redo", method!(UserModel::can_redo, 0))?;
+    define_methods!(user_model_class, UserModel, [
+        evaluate/0, pause_evaluation/0, resume_evaluation/0,
+        undo/0, redo/0, can_undo/0, can_redo/0,
+    ]);
     // Set / clear / get values
-    user_model_class.define_method("set_user_input", method!(UserModel::set_user_input, 4))?;
-    user_model_class.define_method(
-        "clear_cell_contents",
-        method!(UserModel::clear_cell_contents, 3),
-    )?;
-    user_model_class.define_method("get_cell_content", method!(UserModel::get_cell_content, 3))?;
-    user_model_class.define_method("get_cell_type", method!(UserModel::get_cell_type, 3))?;
-    user_model_class.define_method(
-        "get_formatted_cell_value",
-        method!(UserModel::get_formatted_cell_value, 3),
-    )?;
-    // Styles
-    user_model_class.define_method(
-        "get_cell_style_json",
-        method!(UserModel::get_cell_style_json, 3),
-    )?;
-    user_model_class.define_method(
-        "update_range_style",
-        method!(UserModel::update_range_style, 5),
-    )?;
+    define_methods!(user_model_class, UserModel, [
+        set_user_input/4, clear_cell_contents/3, clear_cell_all/3,
+        clear_cell_formatting/3,
+        get_cell_content/3, get_cell_type/3, get_formatted_cell_value/3,
+    ]);
+    // Styles (per-property; the engine user model has no whole-Style setter)
+    define_methods!(user_model_class, UserModel, [
+        get_cell_style_json/3, update_range_style/5,
+    ]);
     // Rows / columns
-    user_model_class.define_method("insert_rows", method!(UserModel::insert_rows, 3))?;
-    user_model_class.define_method("insert_columns", method!(UserModel::insert_columns, 3))?;
-    user_model_class.define_method("delete_rows", method!(UserModel::delete_rows, 3))?;
-    user_model_class.define_method("delete_columns", method!(UserModel::delete_columns, 3))?;
-    user_model_class.define_method("get_column_width", method!(UserModel::get_column_width, 2))?;
-    user_model_class.define_method("get_row_height", method!(UserModel::get_row_height, 2))?;
-    user_model_class.define_method("set_column_width", method!(UserModel::set_column_width, 3))?;
-    user_model_class.define_method("set_row_height", method!(UserModel::set_row_height, 3))?;
+    define_methods!(user_model_class, UserModel, [
+        insert_rows/3, insert_columns/3, delete_rows/3, delete_columns/3,
+        get_column_width/2, set_column_width/3, get_row_height/2, set_row_height/3,
+    ]);
     // Frozen rows / columns
-    user_model_class.define_method(
-        "get_frozen_columns_count",
-        method!(UserModel::get_frozen_columns_count, 1),
-    )?;
-    user_model_class.define_method(
-        "get_frozen_rows_count",
-        method!(UserModel::get_frozen_rows_count, 1),
-    )?;
-    user_model_class.define_method(
-        "set_frozen_columns_count",
-        method!(UserModel::set_frozen_columns_count, 2),
-    )?;
-    user_model_class.define_method(
-        "set_frozen_rows_count",
-        method!(UserModel::set_frozen_rows_count, 2),
-    )?;
+    define_methods!(user_model_class, UserModel, [
+        get_frozen_columns_count/1, set_frozen_columns_count/2,
+        get_frozen_rows_count/1, set_frozen_rows_count/2,
+    ]);
     // Sheets
-    user_model_class.define_method(
-        "get_worksheets_properties",
-        method!(UserModel::get_worksheets_properties, 0),
-    )?;
-    user_model_class.define_method("set_sheet_color", method!(UserModel::set_sheet_color, 2))?;
-    user_model_class.define_method("new_sheet", method!(UserModel::new_sheet, 0))?;
-    user_model_class.define_method("delete_sheet", method!(UserModel::delete_sheet, 1))?;
-    user_model_class.define_method("rename_sheet", method!(UserModel::rename_sheet, 2))?;
-    user_model_class.define_method(
-        "get_sheet_dimensions",
-        method!(UserModel::get_sheet_dimensions, 1),
-    )?;
-    user_model_class.define_method("to_bytes", method!(UserModel::to_bytes, 0))?;
+    define_methods!(user_model_class, UserModel, [
+        get_worksheets_properties/0, get_sheet_dimensions/1, set_sheet_color/2,
+        new_sheet/0, delete_sheet/1, rename_sheet/2,
+    ]);
     // Defined names
-    user_model_class.define_method(
-        "get_defined_name_list",
-        method!(UserModel::get_defined_name_list, 0),
-    )?;
-    user_model_class.define_method("new_defined_name", method!(UserModel::new_defined_name, 3))?;
-    user_model_class.define_method(
-        "update_defined_name",
-        method!(UserModel::update_defined_name, 5),
-    )?;
-    user_model_class.define_method(
-        "delete_defined_name",
-        method!(UserModel::delete_defined_name, 2),
-    )?;
-    user_model_class.define_method(
-        "is_valid_defined_name",
-        method!(UserModel::is_valid_defined_name, 3),
-    )?;
+    define_methods!(user_model_class, UserModel, [
+        get_defined_name_list/0, new_defined_name/3, update_defined_name/5,
+        delete_defined_name/2, is_valid_defined_name/3,
+    ]);
 
     Ok(())
 }

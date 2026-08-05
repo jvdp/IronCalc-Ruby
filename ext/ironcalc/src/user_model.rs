@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 
 use magnus::value::StaticSymbol;
-use magnus::{RArray, RString, Ruby};
+use magnus::{RArray, RString, Ruby, Value};
 
 use xlsx::base::UserModel as CoreUserModel;
 use xlsx::export::{save_to_icalc, save_to_xlsx};
@@ -11,14 +11,7 @@ use crate::model::{
     cell_area, cell_type_to_str, color_to_ruby, defined_names_to_ruby, parse_color,
 };
 
-/// The higher-level, recommended IronCalc API. Wraps [`CoreUserModel`], which
-/// **auto-evaluates after every action** and records diffs for collaboration
-/// (`flush_send_queue` / `apply_external_diffs`). Prefer this over the raw
-/// `Model`, which requires manual `evaluate` and can be left inconsistent.
-///
-/// This mirrors the surface of IronCalc's WebAssembly binding (the engine's
-/// canonical UserModel), so it is a superset of the Python binding's thinner
-/// `UserModel`.
+/// Shaped after the engine's WebAssembly binding rather than the Python one.
 #[magnus::wrap(class = "IronCalc::UserModel", free_immediately, size)]
 pub struct UserModel {
     pub model: RefCell<CoreUserModel<'static>>,
@@ -64,7 +57,6 @@ impl UserModel {
 
     // Evaluation / history --------------------------------------------------
 
-    /// Usually unnecessary (the user model auto-evaluates); exposed for parity.
     pub fn evaluate(&self) {
         self.model.borrow_mut().evaluate();
     }
@@ -155,10 +147,7 @@ impl UserModel {
 
     // Styles ----------------------------------------------------------------
     //
-    // Reads return the full style as JSON (the Ruby layer exposes it as a Hash).
-    // The user-model styling primitive is per-property (`update_range_style`,
-    // mirroring the WASM binding) rather than the whole-Style setter the raw
-    // `Model` exposes.
+    // Per-property only; there is no whole-Style setter to mirror `Model`'s.
 
     pub fn get_cell_style_json(
         &self,
@@ -310,10 +299,10 @@ impl UserModel {
         array
     }
 
-    pub fn set_sheet_color(&self, sheet: u32, color: Option<String>) -> Result<(), magnus::Error> {
+    pub fn set_sheet_color(&self, sheet: u32, color: Value) -> Result<(), magnus::Error> {
         self.model
             .borrow_mut()
-            .set_sheet_color(sheet, &parse_color(color))
+            .set_sheet_color(sheet, &parse_color(color)?)
             .map_err(workbook_error)
     }
 
@@ -335,8 +324,6 @@ impl UserModel {
             .map_err(workbook_error)
     }
 
-    /// Returns `[min_row, max_row, min_column, max_column]` for all non-empty
-    /// cells. An empty sheet returns `[1, 1, 1, 1]`.
     pub fn get_sheet_dimensions(&self, sheet: u32) -> Result<(i32, i32, i32, i32), magnus::Error> {
         let model = self.model.borrow();
         let worksheet = model
@@ -352,10 +339,9 @@ impl UserModel {
             dimension.max_column,
         ))
     }
+
     // Defined names ---------------------------------------------------------
 
-    /// Defined names as `[{ name:, scope:, formula: }, ...]`. `scope` is the
-    /// 0-based sheet index for sheet-scoped names, `nil` for workbook-scoped ones.
     pub fn get_defined_name_list(ruby: &Ruby, rb_self: &Self) -> RArray {
         // The user model's own reader; the raw model's bypasses the diff queue.
         defined_names_to_ruby(ruby, rb_self.model.borrow().get_defined_name_list())
@@ -398,11 +384,37 @@ impl UserModel {
             .map_err(workbook_error)
     }
 
-/// Whether `new_defined_name` would succeed; see `Model#is_valid_defined_name`.
-pub fn is_valid_defined_name(&self, name: String, scope: Option<u32>, formula: String) -> bool {
-    self.model
-        .borrow_mut()
-        .is_valid_defined_name(&name, scope, &formula)
-        .is_ok()
-}
+    pub fn clear_cell_all(&self, sheet: u32, row: i32, column: i32) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .range_clear_all(&cell_area(sheet, row, column))
+            .map_err(workbook_error)
+    }
+
+    pub fn clear_cell_formatting(
+        &self,
+        sheet: u32,
+        row: i32,
+        column: i32,
+    ) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .range_clear_formatting(&cell_area(sheet, row, column))
+            .map_err(workbook_error)
+    }
+
+    pub fn pause_evaluation(&self) {
+        self.model.borrow_mut().pause_evaluation();
+    }
+
+    pub fn resume_evaluation(&self) {
+        self.model.borrow_mut().resume_evaluation();
+    }
+
+    pub fn is_valid_defined_name(&self, name: String, scope: Option<u32>, formula: String) -> bool {
+        self.model
+            .borrow_mut()
+            .is_valid_defined_name(&name, scope, &formula)
+            .is_ok()
+    }
 }
