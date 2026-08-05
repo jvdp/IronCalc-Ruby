@@ -1,0 +1,2 @@
+# Matches the gemspec; otherwise inferred from the running Ruby.
+ruby_version: 3.0

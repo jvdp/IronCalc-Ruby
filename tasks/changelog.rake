@@ -51,11 +51,11 @@ namespace :changelog do
     bullets = Changelog.commits_since(tag)
     puts "## #{IronCalc::VERSION}\n\n"
     if bullets.empty?
-      puts "_(no commits since #{tag || 'repo start'})_"
+      puts "_(no commits since #{tag || "repo start"})_"
     else
       puts bullets
     end
-    warn "\n# ^ commits since #{tag || 'repo start'} — edit, then paste into CHANGELOG.md"
+    warn "\n# ^ commits since #{tag || "repo start"} — edit, then paste into CHANGELOG.md"
   end
 
   desc "Print one version's section (VERSION=x.y.z, default current) for release notes"

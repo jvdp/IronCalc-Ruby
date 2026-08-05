@@ -31,7 +31,7 @@ module Parity
   USERMODEL_RENAMES = {
     "set_column_width" => "set_columns_width",
     "set_row_height" => "set_rows_height",
-    "clear_cell_contents" => "range_clear_contents",
+    "clear_cell_contents" => "range_clear_contents"
   }.freeze
   # Ruby UserModel-only internals (JSON style accessor) with no engine equivalent name.
   USERMODEL_INTERNAL = %w[get_cell_style_json].freeze
@@ -49,7 +49,7 @@ module Parity
     /\Aon_/, /\Aget_selected_/, /\Aset_selected_/, /\Aget_scroll_/,
     /window/, /clipboard/, /defined_name/, /\Aauto_fill_/, /\Apaste_/,
     /\Amove_.*_action\z/, /grid_lines/, /timezone/, /locale/, /language/,
-    /hide_sheet/, /can_(undo|redo)/,
+    /hide_sheet/, /can_(undo|redo)/
   ].freeze
 
   module_function
@@ -58,11 +58,11 @@ module Parity
     out, status = Open3.capture2(
       RbConfig.ruby, "-Ilib", "-e",
       'require "ironcalc"; require "json";' \
-      'puts JSON.generate({' \
+      "puts JSON.generate({" \
       '  "Model" => IronCalc::Model.instance_methods(false).map(&:to_s),' \
       '  "UserModel" => IronCalc::UserModel.instance_methods(false).map(&:to_s),' \
       '  "module" => IronCalc.singleton_methods(false).map(&:to_s),' \
-      '})'
+      "})"
     )
     raise "could not introspect Ruby API (is the extension compiled? run `rake compile`)" unless status.success?
 
@@ -81,7 +81,7 @@ module Parity
       depth = 0
       File.foreach(path) do |line|
         if !in_impl && line.include?("{") && line !~ / for / &&
-           line =~ /\bimpl\b[^{]*\b#{Regexp.escape(type_name)}\b/
+            line =~ /\bimpl\b[^{]*\b#{Regexp.escape(type_name)}\b/
           in_impl = true
           impl_depth = depth
         end
@@ -112,7 +112,7 @@ module Parity
 
     pkg = JSON.parse(out)["packages"].find { |p| p["name"] == "ironcalc_base" }
     pkg && File.join(File.dirname(pkg["manifest_path"]), "src")
-  rescue StandardError
+  rescue
     nil
   end
 
@@ -137,13 +137,13 @@ task :parity do
 
   # --- 1. Python parity (authoritative) -------------------------------------
   if (py = Parity.python_lib_rs)
-    py_model     = Parity.rust_impl_methods([py], "PyModel")
+    py_model = Parity.rust_impl_methods([py], "PyModel")
     py_usermodel = Parity.rust_impl_methods([py], "PyUserModel")
-    py_module    = Parity.rust_module_fns(py)
+    py_module = Parity.rust_module_fns(py)
 
     section.call("Python parity — Model (expect exact match)")
     missing = py_model - ruby["Model"]
-    extra   = ruby["Model"] - py_model - Parity::RUBY_MODEL_INTERNAL
+    extra = ruby["Model"] - py_model - Parity::RUBY_MODEL_INTERNAL
     hard_gaps += missing.size
     list.call("in PyModel, MISSING from Ruby Model", missing)
     list.call("in Ruby Model, not in PyModel (review)", extra)
@@ -153,12 +153,14 @@ task :parity do
     missing = py_usermodel - ruby["UserModel"]
     hard_gaps += missing.size
     list.call("in PyUserModel, MISSING from Ruby UserModel", missing)
-    puts "  ✓ Ruby UserModel is a superset of PyUserModel " \
-         "(+#{(ruby['UserModel'] - py_usermodel).size} enriched methods)" if missing.empty?
+    if missing.empty?
+      puts "  ✓ Ruby UserModel is a superset of PyUserModel " \
+           "(+#{(ruby["UserModel"] - py_usermodel).size} enriched methods)"
+    end
 
     section.call("Python parity — module functions (expect exact match)")
     missing = py_module - ruby["module"]
-    extra   = ruby["module"] - py_module
+    extra = ruby["module"] - py_module
     hard_gaps += missing.size
     list.call("in Python module, MISSING from Ruby", missing)
     list.call("in Ruby module, not in Python (review)", extra)
@@ -174,7 +176,7 @@ task :parity do
     files = Dir[File.join(src, "user_model", "*.rs")]
     engine = Parity.rust_impl_methods(files, "UserModel")
     exposed = ruby["UserModel"].map { |m| Parity::USERMODEL_RENAMES.fetch(m, m) } +
-              Parity::USERMODEL_INTERNAL
+      Parity::USERMODEL_INTERNAL
     candidates = engine - exposed - Parity::ENGINE_OMIT_EXACT
     candidates = candidates.reject { |m| Parity::ENGINE_OMIT_PATTERNS.any? { |re| m =~ re } }
     if candidates.empty?
@@ -187,7 +189,7 @@ task :parity do
     puts "  (could not resolve ironcalc_base source via cargo metadata)"
   end
 
-  puts "\n#{'-' * 60}"
+  puts "\n#{"-" * 60}"
   if hard_gaps.zero?
     puts "Parity OK: no Python-parity gaps."
   else

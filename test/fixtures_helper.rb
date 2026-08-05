@@ -46,13 +46,13 @@ module FixturesHelper
       )
       pkg = find_ironcalc(out)
       pkg && pkg["manifest_path"]
-    rescue StandardError
+    rescue
       nil
     end
 
     def find_ironcalc(metadata_json)
       JSON.parse(metadata_json)["packages"].find { |p| p["name"] == "ironcalc" }
-    rescue StandardError
+    rescue
       nil
     end
   end

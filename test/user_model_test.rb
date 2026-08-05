@@ -28,7 +28,7 @@ class UserModelTest < Minitest::Test
   end
 
   def test_styling_via_hash_wrapper
-    model.set_cell_style(0, 1, 1, { "font" => { "b" => true, "i" => true } })
+    model.set_cell_style(0, 1, 1, {"font" => {"b" => true, "i" => true}})
     style = model.get_cell_style(0, 1, 1)
     assert_equal true, style["font"]["b"]
     assert_equal true, style["font"]["i"]

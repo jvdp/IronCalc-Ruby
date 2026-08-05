@@ -19,7 +19,7 @@ class SurfaceTest < Minitest::Test
     names = model.get_worksheets_properties.map { |p| p[:name] }
     assert_equal(
       ["Sheet1", "Second", "Sheet4", "shared", "Table",
-       "Sheet2", "Created fourth", "Frozen", "Split", "Hidden"],
+        "Sheet2", "Created fourth", "Frozen", "Split", "Hidden"],
       names
     )
     # Idiomatic shape: array of Hashes with symbol keys.

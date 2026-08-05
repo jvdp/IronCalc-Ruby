@@ -4,19 +4,19 @@ require_relative "lib/ironcalc/version"
 engine_version = IronCalc::VERSION.split(".").first(3).join(".")
 
 Gem::Specification.new do |spec|
-  spec.name          = "ironcalc"
-  spec.version       = IronCalc::VERSION
-  spec.summary       = "Create, edit and evaluate Excel spreadsheets"
-  spec.description   = <<~DESC
+  spec.name = "ironcalc"
+  spec.version = IronCalc::VERSION
+  spec.summary = "Create, edit and evaluate Excel spreadsheets"
+  spec.description = <<~DESC
     Ruby bindings for the IronCalc spreadsheet engine. Create, read and
     manipulate xlsx files: manage sheets, set and read cell values, and
     evaluate formulas.
   DESC
-  spec.homepage      = "https://www.ironcalc.com/"
-  spec.licenses      = ["MIT", "Apache-2.0"]
+  spec.homepage = "https://www.ironcalc.com/"
+  spec.licenses = ["MIT", "Apache-2.0"]
 
-  spec.author        = "jvdp"
-  spec.email         = "jaap@vage-ideeen.nl"
+  spec.author = "jvdp"
+  spec.email = "jaap@vage-ideeen.nl"
 
   spec.metadata = {
     "source_code_uri" => "https://github.com/jvdp/IronCalc-Ruby",
@@ -26,10 +26,10 @@ Gem::Specification.new do |spec|
     "rubygems_mfa_required" => "true"
   }
 
-  spec.files         = Dir["README.md", "CHANGELOG.md", "{ext,lib}/**/*", "Cargo.*", "LICENSE-*", ".yardopts"]
+  spec.files = Dir["README.md", "CHANGELOG.md", "{ext,lib}/**/*", "Cargo.*", "LICENSE-*", ".yardopts"]
     .reject { |f| f.match?(/\.(so|bundle|dll)$/) }
-  spec.require_path  = "lib"
-  spec.extensions    = ["ext/ironcalc/extconf.rb"]
+  spec.require_path = "lib"
+  spec.extensions = ["ext/ironcalc/extconf.rb"]
 
   spec.required_ruby_version = ">= 3.0"
 

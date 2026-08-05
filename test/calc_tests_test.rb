@@ -40,7 +40,7 @@ class CalcTestsTest < Minitest::Test
   else
     files.each do |path|
       name = File.basename(path, ".xlsx")
-      method_name = "test_calc_#{name.gsub(/[^0-9A-Za-z]/, '_')}"
+      method_name = "test_calc_#{name.gsub(/[^0-9A-Za-z]/, "_")}"
       define_method(method_name) do
         skip "#{name}: on the volatile/known-divergence skip list" if SKIP_FILES.include?(name)
         assert_recomputes_to_cached(path)
@@ -52,7 +52,7 @@ class CalcTestsTest < Minitest::Test
 
   def assert_recomputes_to_cached(path)
     locale, eps = read_metadata(path)
-    cached     = IronCalc.load_from_xlsx(path, locale, "UTC", "en")
+    cached = IronCalc.load_from_xlsx(path, locale, "UTC", "en")
     recomputed = IronCalc.load_from_xlsx(path, locale, "UTC", "en")
     recomputed.evaluate
 
@@ -64,12 +64,12 @@ class CalcTestsTest < Minitest::Test
       (min_r..max_r).each do |row|
         (min_c..max_c).each do |col|
           want = cached.get_formatted_cell_value(sheet, row, col)
-          got  = recomputed.get_formatted_cell_value(sheet, row, col)
+          got = recomputed.get_formatted_cell_value(sheet, row, col)
           next if values_match?(want, got, eps)
 
           diffs << format("  %s!%s%d  cached=%p  recomputed=%p  (=%s)",
-                          props[:name], col_letter(col), row, want, got,
-                          recomputed.get_cell_content(sheet, row, col))
+            props[:name], col_letter(col), row, want, got,
+            recomputed.get_cell_content(sheet, row, col))
           return assert(false, fail_message(path, diffs)) if diffs.size >= 20
         end
       end
@@ -79,7 +79,7 @@ class CalcTestsTest < Minitest::Test
   end
 
   def fail_message(path, diffs)
-    capped = diffs.size >= 20 ? "+" : ""
+    capped = (diffs.size >= 20) ? "+" : ""
     "#{File.basename(path)}: IronCalc recomputation diverged from Excel's " \
       "cached values in #{diffs.size}#{capped} cell(s):\n" + diffs.join("\n")
   end
