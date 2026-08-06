@@ -1,6 +1,9 @@
 use magnus::value::Lazy;
-use magnus::{function, method, prelude::*, Error, RString, Ruby};
+use magnus::{function, method, prelude::*, Error, RHash, RString, Ruby};
 
+use xlsx::base::expressions::types::ParsedReference;
+use xlsx::base::expressions::utils;
+use xlsx::base::{get_all_timezones, get_supported_locales};
 use xlsx::base::types::Workbook;
 use xlsx::base::{Model as CoreModel, UserModel as CoreUserModel};
 use xlsx::import;
@@ -19,7 +22,6 @@ fn leak_str(s: &str) -> &'static str {
 
 // Top-level constructors --------------------------------------------------
 
-/// Creates an empty model using the raw API.
 fn create(name: String, locale: String, tz: String, language_id: String) -> Result<Model, Error> {
     let model = CoreModel::new_empty(
         leak_str(&name),
@@ -31,7 +33,6 @@ fn create(name: String, locale: String, tz: String, language_id: String) -> Resu
     Ok(Model::new(model))
 }
 
-/// Loads a model from an xlsx file.
 fn load_from_xlsx(
     file_path: String,
     locale: String,
@@ -43,14 +44,12 @@ fn load_from_xlsx(
     Ok(Model::new(model))
 }
 
-/// Loads a model from the internal binary icalc format.
 fn load_from_icalc(file_name: String, language_id: String) -> Result<Model, Error> {
     let model =
         import::load_from_icalc(&file_name, leak_str(&language_id)).map_err(workbook_error)?;
     Ok(Model::new(model))
 }
 
-/// Loads a model from icalc bytes (same format as `save_to_icalc`).
 fn load_from_bytes(bytes: RString, language_id: String) -> Result<Model, Error> {
     let raw = unsafe { bytes.as_slice() }.to_vec();
     let workbook: Workbook = bitcode::decode(&raw).map_err(workbook_error)?;
@@ -58,7 +57,6 @@ fn load_from_bytes(bytes: RString, language_id: String) -> Result<Model, Error> 
     Ok(Model::new(model))
 }
 
-/// Creates an empty model using the user-model API.
 fn create_user_model(
     name: String,
     locale: String,
@@ -75,7 +73,6 @@ fn create_user_model(
     Ok(UserModel::new(model))
 }
 
-/// Creates a user model from an xlsx file.
 fn create_user_model_from_xlsx(
     file_path: String,
     locale: String,
@@ -87,7 +84,6 @@ fn create_user_model_from_xlsx(
     Ok(UserModel::new(CoreUserModel::from_model(model)))
 }
 
-/// Creates a user model from an icalc file.
 fn create_user_model_from_icalc(
     file_name: String,
     language_id: String,
@@ -97,12 +93,70 @@ fn create_user_model_from_icalc(
     Ok(UserModel::new(CoreUserModel::from_model(model)))
 }
 
-/// Creates a user model from icalc bytes (same format as `save_to_icalc`).
 fn create_user_model_from_bytes(bytes: RString, language_id: String) -> Result<UserModel, Error> {
     let raw = unsafe { bytes.as_slice() }.to_vec();
     let workbook: Workbook = bitcode::decode(&raw).map_err(workbook_error)?;
     let model = CoreModel::from_workbook(workbook, leak_str(&language_id)).map_err(workbook_error)?;
     Ok(UserModel::new(CoreUserModel::from_model(model)))
+}
+
+// Engine helpers ----------------------------------------------------------
+
+fn column_to_number(column: String) -> Result<i32, Error> {
+    utils::column_to_number(&column).map_err(workbook_error)
+}
+
+fn number_to_column(column: i32) -> Option<String> {
+    utils::number_to_column(column)
+}
+
+fn is_valid_column(column: String) -> bool {
+    utils::is_valid_column(&column)
+}
+
+fn is_valid_column_number(column: i32) -> bool {
+    utils::is_valid_column_number(column)
+}
+
+fn is_valid_row(row: i32) -> bool {
+    utils::is_valid_row(row)
+}
+
+fn is_valid_identifier(name: String) -> bool {
+    utils::is_valid_identifier(&name)
+}
+
+fn is_valid_a1_identifier(name: String) -> bool {
+    utils::is_valid_a1_identifier(&name)
+}
+
+fn quote_name(name: String) -> String {
+    utils::quote_name(&name)
+}
+
+fn parsed_reference_to_ruby(ruby: &Ruby, parsed: ParsedReference) -> RHash {
+    let hash = ruby.hash_new();
+    let _ = hash.aset(ruby.sym_new("row"), parsed.row);
+    let _ = hash.aset(ruby.sym_new("column"), parsed.column);
+    let _ = hash.aset(ruby.sym_new("absolute_row"), parsed.absolute_row);
+    let _ = hash.aset(ruby.sym_new("absolute_column"), parsed.absolute_column);
+    hash
+}
+
+fn parse_reference_a1(ruby: &Ruby, reference: String) -> Option<RHash> {
+    utils::parse_reference_a1(&reference).map(|p| parsed_reference_to_ruby(ruby, p))
+}
+
+fn parse_reference_r1c1(ruby: &Ruby, reference: String) -> Option<RHash> {
+    utils::parse_reference_r1c1(&reference).map(|p| parsed_reference_to_ruby(ruby, p))
+}
+
+fn supported_locales() -> Vec<String> {
+    get_supported_locales()
+}
+
+fn all_timezones() -> Vec<String> {
+    get_all_timezones()
 }
 
 #[allow(clippy::panic)]
@@ -146,6 +200,18 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
         "create_user_model_from_bytes",
         function!(create_user_model_from_bytes, 2),
     )?;
+    module.define_module_function("column_to_number", function!(column_to_number, 1))?;
+    module.define_module_function("number_to_column", function!(number_to_column, 1))?;
+    module.define_module_function("is_valid_column", function!(is_valid_column, 1))?;
+    module.define_module_function("is_valid_column_number", function!(is_valid_column_number, 1))?;
+    module.define_module_function("is_valid_row", function!(is_valid_row, 1))?;
+    module.define_module_function("is_valid_identifier", function!(is_valid_identifier, 1))?;
+    module.define_module_function("is_valid_a1_identifier", function!(is_valid_a1_identifier, 1))?;
+    module.define_module_function("quote_name", function!(quote_name, 1))?;
+    module.define_module_function("parse_reference_a1", function!(parse_reference_a1, 1))?;
+    module.define_module_function("parse_reference_r1c1", function!(parse_reference_r1c1, 1))?;
+    module.define_module_function("get_supported_locales", function!(supported_locales, 0))?;
+    module.define_module_function("get_all_timezones", function!(all_timezones, 0))?;
     module.define_module_function("test_panic", function!(test_panic, 0))?;
 
     // Raw API: IronCalc::Model
@@ -154,7 +220,7 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     define_methods!(model_class, Model, [
         save_to_xlsx/1, save_to_icalc/1, to_bytes/0, evaluate/0,
     ]);
-    // Set / clear values. The typed setters skip the parsing set_user_input does.
+    // Set / clear values
     define_methods!(model_class, Model, [
         set_user_input/4, clear_cell_contents/3, clear_cell_all/3,
         update_cell_with_text/4, update_cell_with_number/4,

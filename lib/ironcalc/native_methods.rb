@@ -80,6 +80,93 @@ module IronCalc
   #   @return [IronCalc::UserModel]
   #   @raise [IronCalc::Error]
 
+  # @!method column_to_number(column)
+  #   @!scope class
+  #   Column identifier to 1-based number: +"AA"+ becomes 27.
+  #   @param column [String] uppercase A-Z letters
+  #   @return [Integer]
+  #   @raise [IronCalc::Error] if it is not a valid column identifier
+
+  # @!method number_to_column(column)
+  #   @!scope class
+  #   1-based number to column identifier: 27 becomes +"AA"+.
+  #   @param column [Integer]
+  #   @return [String, nil] nil when outside the sheet's columns
+
+  # @!method is_valid_column(column)
+  #   @!scope class
+  #   Whether +column+ is a column identifier within the sheet, e.g. +"AA"+.
+  #   @param column [String]
+  #   @return [Boolean]
+
+  # @!method is_valid_column_number(column)
+  #   @!scope class
+  #   Whether +column+ is a 1-based column number within the sheet.
+  #   @param column [Integer]
+  #   @return [Boolean]
+
+  # @!method is_valid_row(row)
+  #   @!scope class
+  #   Whether +row+ is a 1-based row number within the sheet.
+  #   @param row [Integer]
+  #   @return [Boolean]
+
+  # @!method is_valid_identifier(name)
+  #   Whether +name+ can be a defined name. This is {is_valid_a1_identifier}
+  #   minus the four single letters +"R"+, +"r"+, +"C"+ and +"c"+, which
+  #   spreadsheets reserve for R1C1 notation — they stay usable as LAMBDA
+  #   parameters and LET variables, so the A1 form accepts them.
+  #
+  #     IronCalc.is_valid_identifier("total")  # => true
+  #     IronCalc.is_valid_identifier("R")      # => false, the only difference
+  #     IronCalc.is_valid_identifier("A1")     # => false, a cell reference
+  #
+  #   @!scope class
+  #   @param name [String]
+  #   @return [Boolean]
+
+  # @!method is_valid_a1_identifier(name)
+  #   @!scope class
+  #   Whether +name+ can be a name in an A1-style formula. Anything that reads
+  #   as a cell reference is not one.
+  #
+  #     IronCalc.is_valid_a1_identifier("total")  # => true
+  #     IronCalc.is_valid_a1_identifier("R")      # => true
+  #     IronCalc.is_valid_a1_identifier("A1")     # => false, a cell reference
+  #
+  #   @param name [String]
+  #   @return [Boolean]
+
+  # @!method quote_name(name)
+  #   @!scope class
+  #   Quotes a sheet name if a formula reference would need it:
+  #   +"My Sheet"+ becomes +"'My Sheet'"+, +"Sheet1"+ is returned unchanged.
+  #   @param name [String]
+  #   @return [String]
+
+  # @!method parse_reference_a1(reference)
+  #   @!scope class
+  #   Parses A1 notation into +{ row:, column:, absolute_row:, absolute_column: }+,
+  #   with 1-based coordinates. +"$B$2"+ reports both absolute flags.
+  #   @param reference [String]
+  #   @return [Hash, nil] nil if it does not parse
+
+  # @!method parse_reference_r1c1(reference)
+  #   @!scope class
+  #   As {parse_reference_a1}, for R1C1 notation such as +"R2C3"+.
+  #   @param reference [String]
+  #   @return [Hash, nil] nil if it does not parse
+
+  # @!method get_supported_locales
+  #   @!scope class
+  #   Locale identifiers accepted by the constructors.
+  #   @return [Array<String>]
+
+  # @!method get_all_timezones
+  #   @!scope class
+  #   Timezone names accepted by the constructors.
+  #   @return [Array<String>]
+
   # The raw IronCalc API. You must call {#evaluate} yourself after changing
   # inputs; misuse can leave the workbook in an inconsistent state. This mirrors
   # the Python binding's `Model`. For most uses prefer {UserModel}, which
