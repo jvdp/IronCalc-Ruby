@@ -1,10 +1,11 @@
 use std::cell::RefCell;
+use std::io::Cursor;
 
 use magnus::value::StaticSymbol;
 use magnus::{RArray, RString, Ruby, Value};
 
 use xlsx::base::UserModel as CoreUserModel;
-use xlsx::export::{save_to_icalc, save_to_xlsx};
+use xlsx::export::{save_to_icalc, save_to_xlsx, save_xlsx_to_writer};
 
 use crate::error::workbook_error;
 use crate::model::{
@@ -29,6 +30,13 @@ impl UserModel {
     pub fn save_to_xlsx(&self, file: String) -> Result<(), magnus::Error> {
         let model = self.model.borrow();
         save_to_xlsx(model.get_model(), &file).map_err(workbook_error)
+    }
+
+    pub fn to_xlsx_bytes(ruby: &Ruby, rb_self: &Self) -> Result<RString, magnus::Error> {
+        let model = rb_self.model.borrow();
+        let cursor = save_xlsx_to_writer(model.get_model(), Cursor::new(Vec::new()))
+            .map_err(workbook_error)?;
+        Ok(ruby.str_from_slice(cursor.get_ref()))
     }
 
     pub fn save_to_icalc(&self, file: String) -> Result<(), magnus::Error> {

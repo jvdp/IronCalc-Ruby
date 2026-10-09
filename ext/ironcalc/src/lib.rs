@@ -44,6 +44,21 @@ fn load_from_xlsx(
     Ok(Model::new(model))
 }
 
+fn load_from_xlsx_bytes(
+    bytes: RString,
+    name: String,
+    locale: String,
+    tz: String,
+    language_id: String,
+) -> Result<Model, Error> {
+    let raw = unsafe { bytes.as_slice() }.to_vec();
+    let workbook =
+        import::load_from_xlsx_bytes(&raw, &name, &locale, &tz).map_err(workbook_error)?;
+    let model =
+        CoreModel::from_workbook(workbook, leak_str(&language_id)).map_err(workbook_error)?;
+    Ok(Model::new(model))
+}
+
 fn load_from_icalc(file_name: String, language_id: String) -> Result<Model, Error> {
     let model =
         import::load_from_icalc(&file_name, leak_str(&language_id)).map_err(workbook_error)?;
@@ -81,6 +96,21 @@ fn create_user_model_from_xlsx(
 ) -> Result<UserModel, Error> {
     let model = import::load_from_xlsx(&file_path, &locale, &tz, leak_str(&language_id))
         .map_err(workbook_error)?;
+    Ok(UserModel::new(CoreUserModel::from_model(model)))
+}
+
+fn create_user_model_from_xlsx_bytes(
+    bytes: RString,
+    name: String,
+    locale: String,
+    tz: String,
+    language_id: String,
+) -> Result<UserModel, Error> {
+    let raw = unsafe { bytes.as_slice() }.to_vec();
+    let workbook =
+        import::load_from_xlsx_bytes(&raw, &name, &locale, &tz).map_err(workbook_error)?;
+    let model =
+        CoreModel::from_workbook(workbook, leak_str(&language_id)).map_err(workbook_error)?;
     Ok(UserModel::new(CoreUserModel::from_model(model)))
 }
 
@@ -180,12 +210,17 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     // Top-level constructors.
     module.define_module_function("create", function!(create, 4))?;
     module.define_module_function("load_from_xlsx", function!(load_from_xlsx, 4))?;
+    module.define_module_function("load_from_xlsx_bytes", function!(load_from_xlsx_bytes, 5))?;
     module.define_module_function("load_from_icalc", function!(load_from_icalc, 2))?;
     module.define_module_function("load_from_bytes", function!(load_from_bytes, 2))?;
     module.define_module_function("create_user_model", function!(create_user_model, 4))?;
     module.define_module_function(
         "create_user_model_from_xlsx",
         function!(create_user_model_from_xlsx, 4),
+    )?;
+    module.define_module_function(
+        "create_user_model_from_xlsx_bytes",
+        function!(create_user_model_from_xlsx_bytes, 5),
     )?;
     module.define_module_function(
         "create_user_model_from_icalc",
@@ -212,7 +247,7 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     let model_class = module.define_class("Model", ruby.class_object())?;
     // Persistence and evaluation
     define_methods!(model_class, Model, [
-        save_to_xlsx/1, save_to_icalc/1, to_bytes/0, evaluate/0,
+        save_to_xlsx/1, to_xlsx_bytes/0, save_to_icalc/1, to_bytes/0, evaluate/0,
     ]);
     // Set / clear values
     define_methods!(model_class, Model, [
@@ -258,7 +293,7 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     let user_model_class = module.define_class("UserModel", ruby.class_object())?;
     // Persistence and collaboration (diff queue)
     define_methods!(user_model_class, UserModel, [
-        save_to_xlsx/1, save_to_icalc/1, to_bytes/0,
+        save_to_xlsx/1, to_xlsx_bytes/0, save_to_icalc/1, to_bytes/0,
         apply_external_diffs/1, flush_send_queue/0,
     ]);
     // Evaluation / history

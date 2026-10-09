@@ -217,4 +217,10 @@ class UserModelTest < Minitest::Test
     reloaded.evaluate
     assert_equal "42", reloaded.get_formatted_cell_value(0, 1, 1)
   end
+
+  def test_to_xlsx_bytes_roundtrip
+    model.set_user_input(0, 1, 1, "=6*7")
+    reloaded = IronCalc.create_user_model_from_xlsx_bytes(model.to_xlsx_bytes, "m", "en", "UTC", "en")
+    assert_equal "42", reloaded.get_formatted_cell_value(0, 1, 1)
+  end
 end

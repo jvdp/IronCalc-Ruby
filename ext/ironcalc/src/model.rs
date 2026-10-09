@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::io::Cursor;
 
 use magnus::value::StaticSymbol;
 use magnus::value::ReprValue;
@@ -8,7 +9,7 @@ use xlsx::base::cell::CellValue;
 use xlsx::base::expressions::types::Area;
 use xlsx::base::types::{Color, SheetState, Style};
 use xlsx::base::Model as CoreModel;
-use xlsx::export::{save_to_icalc, save_to_xlsx};
+use xlsx::export::{save_to_icalc, save_to_xlsx, save_xlsx_to_writer};
 
 use crate::error::workbook_error;
 
@@ -122,6 +123,12 @@ impl Model {
 
     pub fn save_to_xlsx(&self, file: String) -> Result<(), magnus::Error> {
         save_to_xlsx(&self.model.borrow(), &file).map_err(workbook_error)
+    }
+
+    pub fn to_xlsx_bytes(ruby: &Ruby, rb_self: &Self) -> Result<RString, magnus::Error> {
+        let cursor = save_xlsx_to_writer(&rb_self.model.borrow(), Cursor::new(Vec::new()))
+            .map_err(workbook_error)?;
+        Ok(ruby.str_from_slice(cursor.get_ref()))
     }
 
     pub fn save_to_icalc(&self, file: String) -> Result<(), magnus::Error> {

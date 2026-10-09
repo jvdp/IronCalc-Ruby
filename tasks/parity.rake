@@ -68,6 +68,7 @@ module Parity
   # Assembled in the Ruby layer or in the binding; no single engine method behind them.
   RUBY_COMPOSED = %w[
     get_cell_style set_cell_style get_sheet_dimensions defined_names batch
+    to_xlsx_bytes
   ].freeze
 
   # Engine methods the scan cannot reach: it reads only `impl Model` in

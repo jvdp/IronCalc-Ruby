@@ -28,6 +28,18 @@ module IronCalc
   #   @return [IronCalc::Model]
   #   @raise [IronCalc::Error]
 
+  # @!method load_from_xlsx_bytes(bytes, name, locale, tz, language_id)
+  #   @!scope class
+  #   Loads a workbook from the bytes of an xlsx file into the raw {Model} API
+  #   (as produced by {Model#to_xlsx_bytes}).
+  #   @param bytes [String] binary xlsx bytes
+  #   @param name [String] workbook name
+  #   @param locale [String]
+  #   @param tz [String]
+  #   @param language_id [String]
+  #   @return [IronCalc::Model]
+  #   @raise [IronCalc::Error]
+
   # @!method load_from_icalc(file_name, language_id)
   #   @!scope class
   #   Loads a workbook from the internal binary icalc format.
@@ -58,6 +70,17 @@ module IronCalc
   #   @!scope class
   #   Loads an xlsx file into the {UserModel} API.
   #   @param file_path [String]
+  #   @param locale [String]
+  #   @param tz [String]
+  #   @param language_id [String]
+  #   @return [IronCalc::UserModel]
+  #   @raise [IronCalc::Error]
+
+  # @!method create_user_model_from_xlsx_bytes(bytes, name, locale, tz, language_id)
+  #   @!scope class
+  #   Loads the bytes of an xlsx file into the {UserModel} API.
+  #   @param bytes [String] binary xlsx bytes
+  #   @param name [String] workbook name
   #   @param locale [String]
   #   @param tz [String]
   #   @param language_id [String]
@@ -178,6 +201,11 @@ module IronCalc
     #   @return [void]
     #   @raise [IronCalc::Error]
 
+    # @!method to_xlsx_bytes
+    #   Serializes the workbook to xlsx bytes (load with {IronCalc.load_from_xlsx_bytes}).
+    #   @return [String] binary string
+    #   @raise [IronCalc::Error]
+
     # @!method save_to_icalc(file)
     #   Saves the workbook to the internal binary icalc format.
     #   @param file [String]
@@ -186,6 +214,7 @@ module IronCalc
 
     # @!method to_bytes
     #   Serializes the workbook to icalc bytes (load with {IronCalc.load_from_bytes}).
+    #   This is IronCalc's internal format, not xlsx; see {#to_xlsx_bytes}.
     #   @return [String] binary string
 
     # @!method evaluate
@@ -534,6 +563,12 @@ module IronCalc
     #   @return [void]
     #   @raise [IronCalc::Error]
 
+    # @!method to_xlsx_bytes
+    #   Serializes the workbook to xlsx bytes (load with
+    #   {IronCalc.create_user_model_from_xlsx_bytes}).
+    #   @return [String] binary string
+    #   @raise [IronCalc::Error]
+
     # @!method save_to_icalc(file)
     #   Saves the workbook to the internal binary icalc format.
     #   @param file [String]
@@ -542,6 +577,7 @@ module IronCalc
 
     # @!method to_bytes
     #   Serializes the workbook to icalc bytes.
+    #   This is IronCalc's internal format, not xlsx; see {#to_xlsx_bytes}.
     #   @return [String] binary string
 
     # @!method apply_external_diffs(diffs)

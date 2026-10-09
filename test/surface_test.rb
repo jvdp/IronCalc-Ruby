@@ -191,6 +191,35 @@ class SurfaceTest < Minitest::Test
     assert_equal "42", reloaded.get_formatted_cell_value(0, 1, 1)
   end
 
+  def test_to_xlsx_bytes_roundtrip
+    model = IronCalc.create("m", "en", "UTC", "en")
+    model.set_user_input(0, 1, 1, "=6*7")
+    model.rename_sheet(0, "Calc")
+    model.evaluate
+
+    bytes = model.to_xlsx_bytes
+    assert_equal Encoding::BINARY, bytes.encoding
+    assert bytes.start_with?("PK\x03\x04".b), "expected a zip (xlsx) container"
+
+    reloaded = IronCalc.load_from_xlsx_bytes(bytes, "m", "en", "UTC", "en")
+    assert_equal "Calc", reloaded.get_worksheets_properties.first[:name]
+    reloaded.evaluate
+    assert_equal "42", reloaded.get_formatted_cell_value(0, 1, 1)
+  end
+
+  def test_load_from_xlsx_bytes_matches_file_load
+    path = FixturesHelper.fixture("example.xlsx")
+    skip "IronCalc fixture example.xlsx not found (run `rake compile` first)." if path.nil? || !File.exist?(path)
+    from_file = IronCalc.load_from_xlsx(path, "en", "UTC", "en")
+    from_bytes = IronCalc.load_from_xlsx_bytes(File.binread(path), "example", "en", "UTC", "en")
+    assert_equal from_file.get_worksheets_properties, from_bytes.get_worksheets_properties
+  end
+
+  def test_load_from_xlsx_bytes_rejects_non_xlsx
+    icalc = IronCalc.create("m", "en", "UTC", "en").to_bytes
+    assert_raises(IronCalc::Error) { IronCalc.load_from_xlsx_bytes(icalc, "m", "en", "UTC", "en") }
+  end
+
   # --- Fixture-driven mutation (real file in, mutate, save, reload) -----------
 
   def test_load_mutate_save_reload

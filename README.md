@@ -133,6 +133,11 @@ must parse. On `UserModel` all four mutations are undoable.
 `create_user_model`, `create_user_model_from_xlsx`,
 `create_user_model_from_icalc`, `create_user_model_from_bytes`.
 
+`to_bytes` and `load_from_bytes` use IronCalc's internal icalc format, not xlsx.
+For xlsx in memory, use `to_xlsx_bytes` with `load_from_xlsx_bytes(bytes, name,
+locale, tz, language_id)` or `create_user_model_from_xlsx_bytes` (same
+arguments).
+
 Errors raised by the engine surface as `IronCalc::Error`.
 
 ## Relationship to the Python bindings
@@ -216,8 +221,9 @@ keyboard state belong to a UI rather than to a library, and are not exposed
 here. Conditional formatting, named styles and themes are a known backlog,
 listed explicitly in `rake parity`'s `ENGINE_DEFERRED` so they stay visible.
 
-What Ruby adds is layering rather than extra engine coverage: Hash-based
-styles, keyword arguments for optional trailing parameters, and `batch`.
+What Ruby adds is mostly layering rather than extra engine coverage: Hash-based
+styles, keyword arguments for optional trailing parameters, `batch`, and xlsx in
+memory (`to_xlsx_bytes` / `load_from_xlsx_bytes`).
 
 These numbers move with every engine release; `rake parity` reports the
 current picture.
