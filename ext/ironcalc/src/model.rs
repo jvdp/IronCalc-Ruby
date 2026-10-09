@@ -523,6 +523,39 @@ impl Model {
             .map_err(workbook_error)
     }
 
+    pub fn is_column_hidden(&self, sheet: u32, column: i32) -> Result<bool, magnus::Error> {
+        self.model
+            .borrow()
+            .is_column_hidden(sheet, column)
+            .map_err(workbook_error)
+    }
+
+    pub fn is_row_hidden(&self, sheet: u32, row: i32) -> Result<bool, magnus::Error> {
+        self.model
+            .borrow()
+            .is_row_hidden(sheet, row)
+            .map_err(workbook_error)
+    }
+
+    pub fn set_column_hidden(
+        &self,
+        sheet: u32,
+        column: i32,
+        hidden: bool,
+    ) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .set_column_hidden(sheet, column, hidden)
+            .map_err(workbook_error)
+    }
+
+    pub fn set_row_hidden(&self, sheet: u32, row: i32, hidden: bool) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .set_row_hidden(sheet, row, hidden)
+            .map_err(workbook_error)
+    }
+
     // Frozen rows / columns -------------------------------------------------
 
     pub fn get_frozen_columns_count(&self, sheet: u32) -> Result<i32, magnus::Error> {

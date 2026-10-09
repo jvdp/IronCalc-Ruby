@@ -118,6 +118,16 @@ class SurfaceTest < Minitest::Test
     assert_in_delta 55.0, model.get_row_height(0, 4)
   end
 
+  def test_hidden_rows_and_columns_roundtrip
+    model = IronCalc.create("m", "en", "UTC", "en")
+    model.set_column_hidden(0, 3, true)
+    model.set_row_hidden(0, 4, true)
+
+    assert model.is_column_hidden(0, 3)
+    assert model.is_row_hidden(0, 4)
+    refute model.is_row_hidden(0, 3)
+  end
+
   def test_frozen_counts_setters
     model = IronCalc.create("m", "en", "UTC", "en")
     model.set_frozen_rows_count(0, 2)

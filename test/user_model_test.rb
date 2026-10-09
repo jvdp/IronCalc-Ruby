@@ -168,6 +168,23 @@ class UserModelTest < Minitest::Test
     assert_in_delta 42.0, model.get_row_height(0, 4)
   end
 
+  # The engine's user model has range setters and no readers; both sides are ours.
+  def test_hidden_rows_and_columns_round_trip
+    model.set_column_hidden(0, 3, true)
+    model.set_row_hidden(0, 4, true)
+
+    assert model.is_column_hidden(0, 3)
+    assert model.is_row_hidden(0, 4)
+    refute model.is_column_hidden(0, 2)
+  end
+
+  def test_hiding_is_undoable
+    model.set_row_hidden(0, 4, true)
+    model.undo
+
+    refute model.is_row_hidden(0, 4)
+  end
+
   def test_frozen_counts
     model.set_frozen_rows_count(0, 2)
     model.set_frozen_columns_count(0, 3)

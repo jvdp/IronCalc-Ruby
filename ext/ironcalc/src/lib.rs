@@ -236,6 +236,7 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     define_methods!(model_class, Model, [
         insert_rows/3, insert_columns/3, delete_rows/3, delete_columns/3,
         get_column_width/2, set_column_width/3, get_row_height/2, set_row_height/3,
+        is_column_hidden/2, set_column_hidden/3, is_row_hidden/2, set_row_hidden/3,
     ]);
     // Frozen rows / columns
     define_methods!(model_class, Model, [
@@ -279,6 +280,7 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     define_methods!(user_model_class, UserModel, [
         insert_rows/3, insert_columns/3, delete_rows/3, delete_columns/3,
         get_column_width/2, set_column_width/3, get_row_height/2, set_row_height/3,
+        is_column_hidden/2, set_column_hidden/3, is_row_hidden/2, set_row_hidden/3,
     ]);
     // Frozen rows / columns
     define_methods!(user_model_class, UserModel, [

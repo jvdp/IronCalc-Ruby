@@ -343,6 +343,32 @@ module IronCalc
     #   @return [void]
     #   @raise [IronCalc::Error]
 
+    # @!method is_column_hidden(sheet, column)
+    #   @param sheet [Integer]
+    #   @param column [Integer]
+    #   @return [Boolean]
+    #   @raise [IronCalc::Error]
+
+    # @!method set_column_hidden(sheet, column, hidden)
+    #   @param sheet [Integer]
+    #   @param column [Integer]
+    #   @param hidden [Boolean]
+    #   @return [void]
+    #   @raise [IronCalc::Error]
+
+    # @!method is_row_hidden(sheet, row)
+    #   @param sheet [Integer]
+    #   @param row [Integer]
+    #   @return [Boolean]
+    #   @raise [IronCalc::Error]
+
+    # @!method set_row_hidden(sheet, row, hidden)
+    #   @param sheet [Integer]
+    #   @param row [Integer]
+    #   @param hidden [Boolean]
+    #   @return [void]
+    #   @raise [IronCalc::Error]
+
     # @!method get_frozen_columns_count(sheet)
     #   @param sheet [Integer]
     #   @return [Integer]
@@ -660,6 +686,32 @@ module IronCalc
     #   @param sheet [Integer]
     #   @param row [Integer]
     #   @param height [Float]
+    #   @return [void]
+    #   @raise [IronCalc::Error]
+
+    # @!method is_column_hidden(sheet, column)
+    #   @param sheet [Integer]
+    #   @param column [Integer]
+    #   @return [Boolean]
+    #   @raise [IronCalc::Error]
+
+    # @!method set_column_hidden(sheet, column, hidden)
+    #   @param sheet [Integer]
+    #   @param column [Integer]
+    #   @param hidden [Boolean]
+    #   @return [void]
+    #   @raise [IronCalc::Error]
+
+    # @!method is_row_hidden(sheet, row)
+    #   @param sheet [Integer]
+    #   @param row [Integer]
+    #   @return [Boolean]
+    #   @raise [IronCalc::Error]
+
+    # @!method set_row_hidden(sheet, row, hidden)
+    #   @param sheet [Integer]
+    #   @param row [Integer]
+    #   @param hidden [Boolean]
     #   @return [void]
     #   @raise [IronCalc::Error]
 

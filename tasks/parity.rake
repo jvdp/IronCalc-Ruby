@@ -47,7 +47,9 @@ module Parity
     "clear_cell_all" => "range_clear_all",
     "clear_cell_formatting" => "range_clear_formatting",
     "set_column_width" => "set_columns_width",
-    "set_row_height" => "set_rows_height"
+    "set_row_height" => "set_rows_height",
+    "set_column_hidden" => "set_columns_hidden",
+    "set_row_hidden" => "set_rows_hidden"
   }.freeze
 
   # Documented inline in model.rb, so they carry no `@!method` stub.
@@ -70,9 +72,11 @@ module Parity
 
   # Engine methods the scan cannot reach: it reads only `impl Model` in
   # `src/*.rs` and `impl UserModel` in `src/user_model/*.rs`, so anything behind
-  # `workbook.*` or in the export crate is invisible.
+  # `workbook.*` or in the export crate is invisible. The hidden readers are on
+  # the engine's Model only; UserModel exposes them through `get_model`.
   ENGINE_ELSEWHERE = %w[
     save_to_xlsx save_to_icalc
+    is_row_hidden is_column_hidden
   ].freeze
 
   # Engine methods we intentionally do not expose. Keyed per class: the same

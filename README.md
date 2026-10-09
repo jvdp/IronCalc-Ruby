@@ -213,9 +213,8 @@ the version this gem tracks, and accurate at the time of writing:
 
 Most of the difference is deliberate. Selection, scrolling, clipboard and
 keyboard state belong to a UI rather than to a library, and are not exposed
-here. Conditional formatting, named styles, themes and hidden rows/columns are
-a known backlog, listed explicitly in `rake parity`'s `ENGINE_DEFERRED` so they
-stay visible.
+here. Conditional formatting, named styles and themes are a known backlog,
+listed explicitly in `rake parity`'s `ENGINE_DEFERRED` so they stay visible.
 
 What Ruby adds is layering rather than extra engine coverage: Hash-based
 styles, keyword arguments for optional trailing parameters, and `batch`.
