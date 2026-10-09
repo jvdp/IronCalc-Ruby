@@ -21,3 +21,13 @@ updates:
     groups:
       bundler:
         update-types: [minor, patch]
+
+  # Most actions are pinned to a major tag (`actions/checkout@v6`), so their
+  # updates are major bumps; all of them come as one PR.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        update-types: [major, minor, patch]
