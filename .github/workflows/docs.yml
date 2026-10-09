@@ -23,9 +23,10 @@ jobs:
           fetch-tags: true
       - uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "3.4"
+          ruby-version: ruby
       # YARD parses Ruby source only, so no extension compile is needed.
-      - run: gem install yard kramdown
+      # irb because YARD's legacy parser references it on Ruby 4.0+.
+      - run: gem install yard kramdown irb
 
       - name: Validate docs build
         run: yard doc --no-output
