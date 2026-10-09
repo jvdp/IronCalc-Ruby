@@ -1,0 +1,23 @@
+version: 2
+updates:
+  # Cargo.lock is committed, so this keeps the lockfile current as well. The
+  # engine (`ironcalc`) is left out of the group: a bump means a new gem version
+  # and an API review (`rake parity`), so it gets a PR of its own.
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      cargo:
+        update-types: [minor, patch]
+        exclude-patterns: [ironcalc]
+
+  # Gemfile.lock is not committed, so this only opens a PR when a new release
+  # falls outside a requirement in the Gemfile or gemspec (e.g. rb_sys ~> 0.9).
+  - package-ecosystem: bundler
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      bundler:
+        update-types: [minor, patch]
