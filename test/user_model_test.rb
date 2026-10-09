@@ -120,9 +120,21 @@ class UserModelTest < Minitest::Test
     assert_equal true, style["font"]["i"]
   end
 
-  def test_update_range_style_directly
-    model.update_range_style(0, 1, 1, "font.b", "true")
-    assert_equal true, model.get_cell_style(0, 1, 1)["font"]["b"]
+  def test_update_range_style_styles_the_whole_area
+    model.update_range_style({sheet: 0, row: 2, column: 2, width: 2, height: 9}, "font.b", "true")
+
+    assert_equal true, model.get_cell_style(0, 2, 2)["font"]["b"]
+    assert_equal true, model.get_cell_style(0, 10, 3)["font"]["b"]
+    refute model.get_cell_style(0, 11, 3)["font"]["b"]
+    refute model.get_cell_style(0, 2, 4)["font"]["b"]
+  end
+
+  def test_update_range_style_rejects_a_malformed_area
+    misspelled = {sheet: 0, row: 1, col: 1, width: 1, height: 1}
+    extra = {sheet: 0, row: 1, column: 1, width: 1, height: 1, depth: 1}
+    assert_raises(IronCalc::Error) { model.update_range_style(misspelled, "font.b", "true") }
+    assert_raises(IronCalc::Error) { model.update_range_style(extra, "font.b", "true") }
+    assert_raises(ArgumentError) { model.update_range_style(0, 1, 1, 1, 1, "font.b", "true") }
   end
 
   def test_undo_redo

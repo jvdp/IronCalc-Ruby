@@ -2,14 +2,14 @@ use std::cell::RefCell;
 use std::io::Cursor;
 
 use magnus::value::StaticSymbol;
-use magnus::{RArray, RString, Ruby, Value};
+use magnus::{RArray, RHash, RString, Ruby, Value};
 
 use xlsx::base::UserModel as CoreUserModel;
 use xlsx::export::{save_to_icalc, save_to_xlsx, save_xlsx_to_writer};
 
 use crate::error::workbook_error;
 use crate::model::{
-    cell_area, cell_type_to_str, color_to_ruby, defined_names_to_ruby, parse_color,
+    area_from_ruby, cell_area, cell_type_to_str, color_to_ruby, defined_names_to_ruby, parse_color,
 };
 
 /// Shaped after the engine's WebAssembly binding rather than the Python one.
@@ -172,16 +172,17 @@ impl UserModel {
     }
 
     pub fn update_range_style(
-        &self,
-        sheet: u32,
-        row: i32,
-        column: i32,
+        ruby: &Ruby,
+        rb_self: &Self,
+        range: RHash,
         style_path: String,
         value: String,
     ) -> Result<(), magnus::Error> {
-        self.model
+        let range = area_from_ruby(ruby, range)?;
+        rb_self
+            .model
             .borrow_mut()
-            .update_range_style(&cell_area(sheet, row, column), &style_path, &value)
+            .update_range_style(&range, &style_path, &value)
             .map_err(workbook_error)
     }
 
@@ -455,10 +456,15 @@ impl UserModel {
         self.model.borrow_mut().resume_evaluation();
     }
 
-    pub fn is_valid_defined_name(&self, name: String, scope: Option<u32>, formula: String) -> bool {
+    pub fn is_valid_defined_name(
+        &self,
+        name: String,
+        scope: Option<u32>,
+        formula: String,
+    ) -> Result<Option<u32>, magnus::Error> {
         self.model
             .borrow_mut()
             .is_valid_defined_name(&name, scope, &formula)
-            .is_ok()
+            .map_err(workbook_error)
     }
 }

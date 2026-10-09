@@ -295,8 +295,10 @@ module IronCalc
     #   JSON backing for `set_row_style`. Prefer the Hash-accepting wrapper.
     #   @return [void]
 
-    # @!method copy_cell_style(source_sheet, source_row, source_column, destination_sheet, destination_row, destination_column)
+    # @!method copy_cell_style(source_cell, destination_cell)
     #   Copies one cell's style (and nothing else) onto another cell, in any sheet.
+    #   @param source_cell [Array(Integer, Integer, Integer)] +[sheet, row, column]+
+    #   @param destination_cell [Array(Integer, Integer, Integer)] +[sheet, row, column]+
     #   @return [void]
     #   @raise [IronCalc::Error]
 
@@ -468,6 +470,45 @@ module IronCalc
     #   Also available as {DefinedNames#defined_names}.
     #   @return [Array<Hash>]
 
+    # @!method new_defined_name(name, scope, formula)
+    #   Adds a defined name. Fails if the name is not a valid identifier (+"A1"+
+    #   is not: it parses as a cell reference), if it is already taken in that
+    #   scope, or if the formula does not parse.
+    #   @param name [String]
+    #   @param scope [Integer, nil] 0-based sheet index, or nil for workbook scope
+    #   @param formula [String] e.g. +"Sheet1!$C$1"+
+    #   @return [void]
+    #   @raise [IronCalc::Error]
+
+    # @!method update_defined_name(name, scope, new_name, new_scope, new_formula)
+    #   Renames, re-scopes and/or repoints an existing defined name.
+    #   @param name [String] the current name
+    #   @param scope [Integer, nil] the current scope
+    #   @param new_name [String]
+    #   @param new_scope [Integer, nil]
+    #   @param new_formula [String]
+    #   @return [void]
+    #   @raise [IronCalc::Error]
+
+    # @!method delete_defined_name(name, scope)
+    #   Deletes a defined name. Fails if no name matches in that scope.
+    #   @param name [String]
+    #   @param scope [Integer, nil]
+    #   @return [void]
+    #   @raise [IronCalc::Error]
+
+    # @!method is_valid_defined_name(name, scope, formula)
+    #   Checks whether {#new_defined_name} would succeed for these arguments,
+    #   raising with the reason if not. {DefinedNames#valid_defined_name?}
+    #   answers the same question as a boolean.
+    #   @param name [String]
+    #   @param scope [Integer, nil]
+    #   @param formula [String]
+    #   @return [Integer, nil] the +sheet_id+ of the scope's sheet (as in
+    #     +get_worksheets_properties+), or nil for workbook scope
+    #   @raise [IronCalc::Error] with the reason, e.g. the name is already taken
+    #     in that scope
+
     # @!method clear_cell_all(sheet, row, column)
     #   Clears a cell's contents *and* style, removing it entirely. Compare
     #   +clear_cell_contents+, which keeps the style.
@@ -529,11 +570,21 @@ module IronCalc
     #   @raise [IronCalc::Error]
 
     # @!method get_all_cells
-    #   Every cell the workbook holds a record for, as +{ sheet:, row:, column: }+
-    #   hashes, ordered by sheet, then row, then column. A cell emptied with
-    #   +clear_cell_contents+ keeps its record and is still listed; combine with
-    #   +is_empty_cell+ if you only want cells that have a value.
+    #   Every cell the workbook holds a record for, as +{ index:, row:, column: }+
+    #   hashes (+index+ is the 0-based sheet index), ordered by sheet, then row,
+    #   then column. A cell emptied with +clear_cell_contents+ keeps its record
+    #   and is still listed; combine with +is_empty_cell+ if you only want cells
+    #   that have a value.
     #   @return [Array<Hash>]
+
+    # @!method insert_sheet(sheet_name, sheet_index, sheet_id)
+    #   Adds a sheet at +sheet_index+ rather than appending it.
+    #   @param sheet_name [String]
+    #   @param sheet_index [Integer] 0-based position to insert at
+    #   @param sheet_id [Integer, nil] normally nil, so the engine allocates one
+    #   @return [void]
+    #   @raise [IronCalc::Error] also if +sheet_id+ is already in use, which the
+    #     engine itself does not check
 
     # @!method set_sheet_state(sheet, state)
     #   Sets a sheet's visibility. Matches the +:state+ value reported by
@@ -659,17 +710,17 @@ module IronCalc
     #   JSON backing for `get_cell_style`. Prefer the Hash-returning wrapper.
     #   @return [String]
 
-    # @!method update_range_style(sheet, row, column, style_path, value)
-    #   Sets a single style property on a cell, e.g. +update_range_style(0, 1, 1,
-    #   "font.b", "true")+. This is the user model's styling primitive (mirrors
-    #   the WASM binding); `set_cell_style` wraps it for whole-Hash convenience.
-    #   @param sheet [Integer]
-    #   @param row [Integer]
-    #   @param column [Integer]
-    #   @param style_path [String] dotted path, e.g. "font.b", "fill.fg_color"
+    # @!method update_range_style(range, style_path, value)
+    #   Sets a single style property on every cell of a range, e.g. bold for
+    #   B2:C10: +update_range_style({sheet: 0, row: 2, column: 2, width: 2,
+    #   height: 9}, "font.b", "true")+. This is the user model's styling
+    #   primitive; `set_cell_style` wraps it for whole-Hash convenience.
+    #   @param range [Hash] the engine's +Area+: exactly the keys +:sheet+,
+    #     +:row+, +:column+, +:width+ and +:height+
+    #   @param style_path [String] dotted path, e.g. "font.b", "fill.color"
     #   @param value [String]
     #   @return [void]
-    #   @raise [IronCalc::Error]
+    #   @raise [IronCalc::Error] also if +range+ has missing or extra keys
 
     # @!method insert_rows(sheet, row, row_count)
     #   @param sheet [Integer]
@@ -813,6 +864,45 @@ module IronCalc
     #   (0-based sheet index, or nil for workbook scope) and +:formula+.
     #   Also available as {DefinedNames#defined_names}.
     #   @return [Array<Hash>]
+
+    # @!method new_defined_name(name, scope, formula)
+    #   Adds a defined name. Fails if the name is not a valid identifier (+"A1"+
+    #   is not: it parses as a cell reference), if it is already taken in that
+    #   scope, or if the formula does not parse.
+    #   @param name [String]
+    #   @param scope [Integer, nil] 0-based sheet index, or nil for workbook scope
+    #   @param formula [String] e.g. +"Sheet1!$C$1"+
+    #   @return [void]
+    #   @raise [IronCalc::Error]
+
+    # @!method update_defined_name(name, scope, new_name, new_scope, new_formula)
+    #   Renames, re-scopes and/or repoints an existing defined name.
+    #   @param name [String] the current name
+    #   @param scope [Integer, nil] the current scope
+    #   @param new_name [String]
+    #   @param new_scope [Integer, nil]
+    #   @param new_formula [String]
+    #   @return [void]
+    #   @raise [IronCalc::Error]
+
+    # @!method delete_defined_name(name, scope)
+    #   Deletes a defined name. Fails if no name matches in that scope.
+    #   @param name [String]
+    #   @param scope [Integer, nil]
+    #   @return [void]
+    #   @raise [IronCalc::Error]
+
+    # @!method is_valid_defined_name(name, scope, formula)
+    #   Checks whether {#new_defined_name} would succeed for these arguments,
+    #   raising with the reason if not. {DefinedNames#valid_defined_name?}
+    #   answers the same question as a boolean.
+    #   @param name [String]
+    #   @param scope [Integer, nil]
+    #   @param formula [String]
+    #   @return [Integer, nil] the +sheet_id+ of the scope's sheet (as in
+    #     +get_worksheets_properties+), or nil for workbook scope
+    #   @raise [IronCalc::Error] with the reason, e.g. the name is already taken
+    #     in that scope
 
     # @!method clear_cell_all(sheet, row, column)
     #   Clears a cell's contents *and* style. Undoable.

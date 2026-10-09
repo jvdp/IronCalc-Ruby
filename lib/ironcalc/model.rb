@@ -1,7 +1,8 @@
 require "json"
 
 # Ruby-side conveniences over the native classes: Hash-based styles, and
-# keyword arguments for the engine's optional trailing parameters.
+# helpers under their own names. Methods sharing an engine name keep the
+# engine's signature.
 module IronCalc
   # Styles cross the native boundary as JSON.
   module StyleCoercion
@@ -19,12 +20,11 @@ module IronCalc
     end
   end
 
-  # Defined names. Prepended to {Model} and {UserModel} so `super` reaches the
-  # native methods, which take `scope` positionally in engine order.
-  #
-  # A `scope` of `nil` is workbook-scoped; an Integer is a 0-based sheet index.
+  # Prepended to {Model} and {UserModel}, so these helpers count as part of the
+  # class surface.
   module DefinedNames
-    # Defined names as an Array of Hashes with Symbol keys:
+    # Same as `get_defined_name_list`: defined names as an Array of Hashes with
+    # Symbol keys:
     #   [{ name: "_key", scope: nil, formula: "Sheet1!$C$1" }, ...]
     #
     # @return [Array<Hash>]
@@ -32,50 +32,18 @@ module IronCalc
       get_defined_name_list
     end
 
-    # Adds a defined name. Fails if the name is not a valid identifier (`"A1"`
-    # is not — it parses as a cell reference), if it is already taken in that
-    # scope, or if the formula does not parse.
+    # Whether {#new_defined_name} would succeed for these arguments: the boolean
+    # form of `is_valid_defined_name`, which raises with the reason instead.
     #
     # @param name [String]
-    # @param formula [String] e.g. `"Sheet1!$C$1"`
     # @param scope [Integer, nil] 0-based sheet index, or nil for workbook scope
-    # @return [void]
-    # @raise [IronCalc::Error]
-    def new_defined_name(name, formula, scope: nil)
-      super(name, scope, formula)
-    end
-
-    # Renames, re-scopes and/or repoints an existing defined name.
-    #
-    # @param name [String] the current name
-    # @param new_name [String]
-    # @param new_formula [String]
-    # @param scope [Integer, nil] the current scope
-    # @param new_scope [Integer, nil]
-    # @return [void]
-    # @raise [IronCalc::Error]
-    def update_defined_name(name, new_name, new_formula, scope: nil, new_scope: nil)
-      super(name, scope, new_name, new_scope, new_formula)
-    end
-
-    # Whether {#new_defined_name} would succeed for these arguments.
-    #
-    # @param name [String]
     # @param formula [String]
-    # @param scope [Integer, nil]
     # @return [Boolean]
-    def is_valid_defined_name(name, formula, scope: nil)
-      super(name, scope, formula)
-    end
-
-    # Deletes a defined name. Fails if no name matches in that scope.
-    #
-    # @param name [String]
-    # @param scope [Integer, nil]
-    # @return [void]
-    # @raise [IronCalc::Error]
-    def delete_defined_name(name, scope: nil)
-      super(name, scope)
+    def valid_defined_name?(name, scope, formula)
+      is_valid_defined_name(name, scope, formula)
+      true
+    rescue Error
+      false
     end
   end
 
@@ -105,20 +73,6 @@ module IronCalc
           evaluate
         end
       end
-    end
-  end
-
-  # Prepended to {Model}, so `super` reaches the native `insert_sheet`.
-  module Sheets
-    # Adds a sheet at `sheet_index` rather than appending it.
-    #
-    # @param name [String]
-    # @param sheet_index [Integer] 0-based position to insert at
-    # @param sheet_id [Integer, nil] normally nil — the engine allocates one
-    # @return [void]
-    # @raise [IronCalc::Error]
-    def insert_sheet(name, sheet_index, sheet_id: nil)
-      super(name, sheet_index, sheet_id)
     end
   end
 
@@ -219,7 +173,7 @@ module IronCalc
     def set_cell_style(sheet, row, column, style)
       desired = style_hash(style)
       flatten_style(desired).each do |path, value|
-        update_range_style(sheet, row, column, path, value.to_s)
+        update_range_style({sheet: sheet, row: row, column: column, width: 1, height: 1}, path, value.to_s)
       end
     end
 
@@ -243,7 +197,6 @@ module IronCalc
   Model.include(StyleCoercion)
   UserModel.include(StyleCoercion)
   Model.prepend(DefinedNames)
-  Model.prepend(Sheets)
   UserModel.prepend(DefinedNames)
   UserModel.prepend(Batch)
 end

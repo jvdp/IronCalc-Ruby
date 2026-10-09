@@ -70,9 +70,9 @@ class CellAccessTest < Minitest::Test
 
     # Ordered by sheet, then row, then column.
     assert_equal [
-      {sheet: 0, row: 1, column: 3},
-      {sheet: 0, row: 2, column: 1},
-      {sheet: 1, row: 5, column: 5}
+      {index: 0, row: 1, column: 3},
+      {index: 0, row: 2, column: 1},
+      {index: 1, row: 5, column: 5}
     ], model.get_all_cells
   end
 
@@ -85,7 +85,7 @@ class CellAccessTest < Minitest::Test
     model.clear_cell_contents(0, 1, 1)
 
     assert model.is_empty_cell(0, 1, 1)
-    assert_equal [{sheet: 0, row: 1, column: 1}], model.get_all_cells
+    assert_equal [{index: 0, row: 1, column: 1}], model.get_all_cells
   end
 
   def test_error_cells_read_back_as_their_error_string

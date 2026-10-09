@@ -3,7 +3,7 @@ use std::io::Cursor;
 
 use magnus::value::StaticSymbol;
 use magnus::value::ReprValue;
-use magnus::{IntoValue, RArray, RString, Ruby, TryConvert, Value};
+use magnus::{IntoValue, RArray, RHash, RString, Ruby, TryConvert, Value};
 
 use xlsx::base::cell::CellValue;
 use xlsx::base::expressions::types::Area;
@@ -21,6 +21,25 @@ pub(crate) fn cell_area(sheet: u32, row: i32, column: i32) -> Area {
         width: 1,
         height: 1,
     }
+}
+
+/// Reads an engine `Area` from a Hash with exactly its field names as Symbol keys.
+pub(crate) fn area_from_ruby(ruby: &Ruby, hash: RHash) -> Result<Area, magnus::Error> {
+    const FIELDS: &str = "expected an area Hash with keys :sheet, :row, :column, :width, :height";
+    if hash.len() != 5 {
+        return Err(workbook_error(FIELDS));
+    }
+    let field = |name: &str| {
+        hash.get(ruby.to_symbol(name))
+            .ok_or_else(|| workbook_error(FIELDS))
+    };
+    Ok(Area {
+        sheet: u32::try_convert(field("sheet")?)?,
+        row: i32::try_convert(field("row")?)?,
+        column: i32::try_convert(field("column")?)?,
+        width: i32::try_convert(field("width")?)?,
+        height: i32::try_convert(field("height")?)?,
+    })
 }
 
 pub(crate) fn color_to_ruby(ruby: &Ruby, color: &Color) -> Value {
@@ -322,14 +341,14 @@ impl Model {
     pub fn get_all_cells(ruby: &Ruby, rb_self: &Self) -> RArray {
         let array = ruby.ary_new();
         // Interned once: this loop is O(cells).
-        let (sheet_key, row_key, column_key) = (
-            ruby.sym_new("sheet"),
+        let (index_key, row_key, column_key) = (
+            ruby.sym_new("index"),
             ruby.sym_new("row"),
             ruby.sym_new("column"),
         );
         for cell in rb_self.model.borrow().get_all_cells() {
             let hash = ruby.hash_new();
-            let _ = hash.aset(sheet_key, cell.index);
+            let _ = hash.aset(index_key, cell.index);
             let _ = hash.aset(row_key, cell.row);
             let _ = hash.aset(column_key, cell.column);
             let _ = array.push(hash);
@@ -369,19 +388,12 @@ impl Model {
 
     pub fn copy_cell_style(
         &self,
-        source_sheet: u32,
-        source_row: i32,
-        source_column: i32,
-        destination_sheet: u32,
-        destination_row: i32,
-        destination_column: i32,
+        source_cell: (u32, i32, i32),
+        destination_cell: (u32, i32, i32),
     ) -> Result<(), magnus::Error> {
         self.model
             .borrow_mut()
-            .copy_cell_style(
-                (source_sheet, source_row, source_column),
-                (destination_sheet, destination_row, destination_column),
-            )
+            .copy_cell_style(source_cell, destination_cell)
             .map_err(workbook_error)
     }
 
@@ -730,11 +742,15 @@ impl Model {
             .map_err(workbook_error)
     }
 
-    /// Collapses the engine's error-with-reason to a boolean.
-    pub fn is_valid_defined_name(&self, name: String, scope: Option<u32>, formula: String) -> bool {
+    pub fn is_valid_defined_name(
+        &self,
+        name: String,
+        scope: Option<u32>,
+        formula: String,
+    ) -> Result<Option<u32>, magnus::Error> {
         self.model
             .borrow_mut()
             .is_valid_defined_name(&name, scope, &formula)
-            .is_ok()
+            .map_err(workbook_error)
     }
 }

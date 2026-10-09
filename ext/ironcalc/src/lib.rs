@@ -263,7 +263,7 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     ]);
     // Styles (JSON across the boundary; the Ruby layer exposes Hashes)
     define_methods!(model_class, Model, [
-        set_cell_style_json/4, get_cell_style_json/3, copy_cell_style/6,
+        set_cell_style_json/4, get_cell_style_json/3, copy_cell_style/2,
         get_column_style_json/2, set_column_style_json/3, delete_column_style/2,
         get_row_style_json/2, set_row_style_json/3, delete_row_style/2,
     ]);
@@ -309,7 +309,7 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     ]);
     // Styles (per-property; the engine user model has no whole-Style setter)
     define_methods!(user_model_class, UserModel, [
-        get_cell_style_json/3, update_range_style/5,
+        get_cell_style_json/3, update_range_style/3,
     ]);
     // Rows / columns
     define_methods!(user_model_class, UserModel, [

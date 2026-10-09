@@ -59,10 +59,11 @@ model.get_cell_value_by_index(0, 1, 2)  # => 42.5 (Float, not "42.5")
 model.get_cell_value_by_ref("Sheet1!D1")  # => 85.0
 model.get_cell_formula(0, 1, 4)         # => "=B1*2", or nil if not a formula
 model.is_empty_cell(0, 9, 9)            # => true
-model.get_all_cells                     # => [{ sheet:, row:, column: }, ...]
+model.get_all_cells                     # => [{ index:, row:, column: }, ...]
 ```
 
-`get_all_cells` lists every cell the workbook has a record for. Clearing a
+`get_all_cells` lists every cell the workbook has a record for (`index` is the
+sheet index, the engine's field name). Clearing a
 cell's contents keeps its record, so filter with `is_empty_cell` if you want
 only cells that still hold a value.
 
@@ -81,9 +82,9 @@ model.set_column_style(0, 2, style)
 model.get_column_style(0, 2)    # => Hash, or nil if the column has no style
 model.delete_column_style(0, 2)
 
-model.copy_cell_style(0, 1, 1, 0, 5, 5)   # style only, works across sheets
+model.copy_cell_style([0, 1, 1], [0, 5, 5])   # style only, works across sheets
 
-model.insert_sheet("Summary", 0)          # position, rather than appending
+model.insert_sheet("Summary", 0, nil)     # position, rather than appending
 model.set_sheet_state(1, "hidden")        # or "visible" / "veryHidden"
 ```
 
@@ -104,13 +105,13 @@ manage it yourself.
 
 ### Defined names
 
-Named ranges, on both APIs. `scope` is a 0-based sheet index, or `nil` (the
-default) for a workbook-scoped name. They survive both an xlsx round trip and
+Named ranges, on both APIs. `scope` is a 0-based sheet index, or `nil` for a
+workbook-scoped name. They survive both an xlsx round trip and
 editing in Excel/LibreOffice, so they are also a place to keep your own
 metadata about a sheet.
 
 ```ruby
-model.new_defined_name("answer", "Sheet1!$C$1")
+model.new_defined_name("answer", nil, "Sheet1!$C$1")
 model.set_user_input(0, 1, 1, "=answer")
 model.evaluate
 model.get_formatted_cell_value(0, 1, 1)  # => the value of C1
@@ -118,14 +119,16 @@ model.get_formatted_cell_value(0, 1, 1)  # => the value of C1
 model.defined_names
 # => [{ name: "answer", scope: nil, formula: "Sheet1!$C$1" }]
 
-model.update_defined_name("answer", "result", "Sheet1!$D$1")
-model.delete_defined_name("result")
+model.update_defined_name("answer", nil, "result", nil, "Sheet1!$D$1")
+model.delete_defined_name("result", nil)
 ```
 
-`is_valid_defined_name(name, formula, scope: nil)` reports whether
+`valid_defined_name?(name, scope, formula)` reports whether
 `new_defined_name` would succeed; the name must be an identifier (`"A1"` is
 rejected — it parses as a cell reference), unused in that scope, and the formula
-must parse. On `UserModel` all four mutations are undoable.
+must parse. `is_valid_defined_name` runs the same check but raises
+`IronCalc::Error` with the reason. On `UserModel` all four mutations are
+undoable.
 
 ### Top-level methods
 
@@ -198,12 +201,18 @@ ports:
 | Cell type | `CellType` enum | `Symbol` (`:number`, `:text`, …) |
 | Worksheet properties | list of `SheetProperty` objects | array of `Hash`es (`:name`, `:state`, `:sheet_id`, `:color`) |
 | Sheet dimensions | tuple `(min_row, max_row, min_col, max_col)` | 4-element `Array` |
+| Engine structs (`Area`, `CellIndex`) | spread into separate arguments | `Hash` keyed by the struct's field names |
+| Engine tuples | tuple | `Array` |
 | Binary data | `bytes` | binary `String` |
 | Version | `ironcalc.__version__` | `IronCalc::VERSION` |
 
 Rather than reconstruct Python's per-field style classes, Ruby exchanges styles
-as plain hashes (serialized as JSON across the boundary). Everything else is kept
-as close to the Python bindings as the two languages allow.
+as plain hashes (serialized as JSON across the boundary). A method that shares a
+name with an engine method takes the engine's parameters in the engine's order,
+with `nil` for an `Option`; conveniences get names of their own. So a range is
+one argument, `update_range_style({sheet: 0, row: 2, column: 2, width: 2,
+height: 9}, "font.b", "true")`, where Python spreads it into start and end
+corners.
 
 ### Coverage compared to the Python bindings
 
@@ -213,8 +222,8 @@ the version this gem tracks, and accurate at the time of writing:
 
 | | Python | Ruby |
 |---|---|---|
-| `Model` | 69 | 62 |
-| `UserModel` | 103 | 48 |
+| `Model` | 69 | 67 |
+| `UserModel` | 103 | 54 |
 
 Most of the difference is deliberate. Selection, scrolling, clipboard and
 keyboard state belong to a UI rather than to a library, and are not exposed
@@ -222,8 +231,7 @@ here. Conditional formatting, named styles and themes are a known backlog,
 listed explicitly in `rake parity`'s `ENGINE_DEFERRED` so they stay visible.
 
 What Ruby adds is mostly layering rather than extra engine coverage: Hash-based
-styles, keyword arguments for optional trailing parameters, `batch`, and xlsx in
-memory (`to_xlsx_bytes` / `load_from_xlsx_bytes`).
+styles, `batch`, and xlsx in memory (`to_xlsx_bytes` / `load_from_xlsx_bytes`).
 
 These numbers move with every engine release; `rake parity` reports the
 current picture.

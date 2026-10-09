@@ -48,7 +48,7 @@ class StylesTest < Minitest::Test
 
   def test_copy_cell_style
     model.set_cell_style(0, 1, 1, style_with { |s| s["font"]["b"] = true })
-    model.copy_cell_style(0, 1, 1, 0, 5, 5)
+    model.copy_cell_style([0, 1, 1], [0, 5, 5])
 
     assert model.get_cell_style(0, 5, 5).dig("font", "b")
   end
@@ -56,7 +56,7 @@ class StylesTest < Minitest::Test
   def test_copy_cell_style_copies_only_the_style
     model.set_user_input(0, 1, 1, "source")
     model.set_cell_style(0, 1, 1, style_with { |s| s["font"]["b"] = true })
-    model.copy_cell_style(0, 1, 1, 0, 5, 5)
+    model.copy_cell_style([0, 1, 1], [0, 5, 5])
 
     assert_equal "", model.get_formatted_cell_value(0, 5, 5)
   end

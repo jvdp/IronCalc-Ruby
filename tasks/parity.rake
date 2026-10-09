@@ -67,8 +67,8 @@ module Parity
 
   # Assembled in the Ruby layer or in the binding; no single engine method behind them.
   RUBY_COMPOSED = %w[
-    get_cell_style set_cell_style get_sheet_dimensions defined_names batch
-    to_xlsx_bytes
+    get_cell_style set_cell_style get_sheet_dimensions defined_names
+    valid_defined_name? batch to_xlsx_bytes
   ].freeze
 
   # Engine methods the scan cannot reach: it reads only `impl Model` in
@@ -147,9 +147,8 @@ module Parity
     require "ironcalc"
     require "json"
 
-    # Methods a prepended module (DefinedNames, Sheets) adds; these shadow the
-    # native method of the same name and are documented in model.rb, not in
-    # native_methods.rb.
+    # Methods a prepended module (DefinedNames, Batch) adds; these are
+    # documented in model.rb, not in native_methods.rb.
     def prepended(klass)
       klass.ancestors.take_while { |a| a != klass }
            .select { |a| a.instance_of?(Module) }
@@ -165,10 +164,13 @@ module Parity
 
     def surface(klass)
       own = klass.instance_methods(false).map(&:to_s)
+      pre = prepended(klass)
       {
         "own" => own.sort.uniq,
-        "prepended" => prepended(klass).sort.uniq,
+        "prepended" => pre.sort.uniq,
         "arity" => own.to_h { |n| [n, native_arity(klass, n)] },
+        # Parameter kinds of the method a caller actually reaches.
+        "params" => (own + pre).to_h { |n| [n, klass.instance_method(n).parameters.map { |kind, _| kind.to_s }] },
       }
     end
 
@@ -224,6 +226,69 @@ module Parity
       end
     end
     methods.uniq.sort
+  end
+
+  # `pub fn` parameter counts (excluding the receiver) inside `impl <type_name>`
+  # blocks, as {name => count}. Same naive brace counting as `rust_impl_methods`,
+  # but reads whole signatures, which rustfmt spreads over several lines.
+  def rust_impl_arities(paths, type_name)
+    arities = {}
+    paths.each do |path|
+      next unless File.exist?(path)
+
+      in_impl = false
+      impl_depth = 0
+      depth = 0
+      signature = nil
+      File.foreach(path) do |line|
+        if !in_impl && line.include?("{") && line !~ / for / &&
+            line =~ /\bimpl\b[^{]*\b#{Regexp.escape(type_name)}\b/
+          in_impl = true
+          impl_depth = depth
+        end
+        signature = +"" if in_impl && signature.nil? && line =~ /pub fn \w+/
+        if signature
+          signature << line
+          if (m = signature.match(/pub fn (\w+)\s*(?:<[^(]*>)?\s*\((.*?)\)\s*(?:->|\{|where)/m))
+            arities[m[1]] ||= rust_params(m[2]).count { |p| p !~ /\bself\z/ }
+            signature = nil
+          end
+        end
+        depth += line.count("{") - line.count("}")
+        in_impl = false if in_impl && depth <= impl_depth
+      end
+    end
+    arities
+  end
+
+  # Splits a Rust parameter list on the commas outside any `<>`, `()` or `[]`.
+  def rust_params(list)
+    params, current, nesting = [], +"", 0
+    list.each_char do |c|
+      nesting += 1 if "<([".include?(c)
+      nesting -= 1 if ">)]".include?(c)
+      if c == "," && nesting.zero?
+        params << current.strip
+        current = +""
+      else
+        current << c
+      end
+    end
+    params << current.strip
+    params.reject(&:empty?)
+  end
+
+  # Ruby methods that share an engine method's name but not its signature: the
+  # same number of parameters, all positional and required. Checked against the
+  # class's own engine counterpart first, then the other engine class's.
+  def signature_drift(params, own_arities, other_arities)
+    params.filter_map do |name, kinds|
+      expected = own_arities.fetch(name) { other_arities[name] }
+      next if expected.nil?
+      next if kinds.all?("req") && kinds.size == expected
+
+      "#{name} (ruby: #{kinds.size} #{kinds.uniq.join("/")}, engine: #{expected} positional)"
+    end
   end
 
   # Top-level `pub fn` (module functions) in a Rust file — those not inside any impl.
@@ -461,6 +526,23 @@ task :parity do
     end
     hard_gaps += invented_total
     puts "  ✓ no invented names" if invented_total.zero?
+
+    # A Ruby method that shares an engine name keeps the engine's signature;
+    # anything friendlier goes in a helper under its own name.
+    section.call("Signatures of engine-named methods (expect none to differ)")
+    arities = {
+      "Model" => Parity.rust_impl_arities(Parity.engine_model_files(src), "Model"),
+      "UserModel" => Parity.rust_impl_arities(Dir[File.join(src, "user_model", "*.rs")], "UserModel")
+    }
+    drift_total = 0
+    Parity::CLASSES.each do |name|
+      other = (Parity::CLASSES - [name]).first
+      drift = Parity.signature_drift(introspected[name]["params"], arities[name], arities[other])
+      drift_total += drift.size
+      list.call("#{name}: signature differs from the engine's", drift)
+    end
+    hard_gaps += drift_total
+    puts "  ✓ every engine-named method takes the engine's parameters" if drift_total.zero?
   else
     engine_skipped = true
     skipped << "engine surface — cargo metadata could not resolve ironcalc_base"
