@@ -697,9 +697,4 @@ impl Model {
             .is_valid_defined_name(&name, scope, &formula)
             .is_ok()
     }
-
-    #[allow(clippy::panic)]
-    pub fn test_panic(&self) {
-        panic!("This function panics for testing panic handling");
-    }
 }

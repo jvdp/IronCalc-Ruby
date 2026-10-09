@@ -159,11 +159,6 @@ fn all_timezones() -> Vec<String> {
     get_all_timezones()
 }
 
-#[allow(clippy::panic)]
-fn test_panic() {
-    panic!("This function panics for testing panic handling");
-}
-
 /// Registers native methods. The Ruby name is the Rust method name; the number
 /// after the slash is the magnus arity.
 macro_rules! define_methods {
@@ -212,7 +207,6 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     module.define_module_function("parse_reference_r1c1", function!(parse_reference_r1c1, 1))?;
     module.define_module_function("get_supported_locales", function!(supported_locales, 0))?;
     module.define_module_function("get_all_timezones", function!(all_timezones, 0))?;
-    module.define_module_function("test_panic", function!(test_panic, 0))?;
 
     // Raw API: IronCalc::Model
     let model_class = module.define_class("Model", ruby.class_object())?;
@@ -259,8 +253,6 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
         get_defined_name_list/0, new_defined_name/3, update_defined_name/5,
         delete_defined_name/2, is_valid_defined_name/3,
     ]);
-    define_methods!(model_class, Model, [test_panic/0]);
-
     // User API: IronCalc::UserModel
     let user_model_class = module.define_class("UserModel", ruby.class_object())?;
     // Persistence and collaboration (diff queue)
