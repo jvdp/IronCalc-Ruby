@@ -1,22 +1,20 @@
 # `rake parity` — reports API-surface drift against the engine and the Python
 # bindings. What the checks are for, and how to act on the report, is in AGENTS.md.
 #
-# Ruby's surface comes from runtime introspection, so it covers native and
-# Ruby-layer methods alike. The other two come from scanning `pub fn` inside the
-# relevant `impl` blocks: the engine from the Cargo registry copy of the version
-# we build against, Python from the PyPI sdist of the same version.
+# Every surface comes from a tool that already knows it: Ruby's from runtime
+# introspection, the engine's from rustdoc's JSON output for the version we
+# build against, Python's from introspecting the published wheel of the same
+# version (via uv), and the doc stubs from YARD's registry.
 #
 # STRICT=1 makes hard gaps exit non-zero; otherwise the task only reports.
 
-require "fileutils"
 require "json"
-require "open-uri"
 require "open3"
-require "tmpdir"
+require "yard"
 
 module Parity
-  PYTHON_CACHE = File.expand_path("../tmp/parity", __dir__)
-  NATIVE_METHODS = File.expand_path("../lib/ironcalc/native_methods.rb", __dir__)
+  ROOT = File.expand_path("..", __dir__)
+  RUSTDOC_TARGET = File.join(ROOT, "tmp", "parity", "rustdoc")
   CLASSES = %w[Model UserModel].freeze
 
   # Ruby name => engine name. Two reasons to rename, and nothing else qualifies:
@@ -52,12 +50,6 @@ module Parity
     "set_row_hidden" => "set_rows_hidden"
   }.freeze
 
-  # Documented inline in model.rb, so they carry no `@!method` stub.
-  DOCUMENTED_IN_RUBY = %w[
-    get_cell_style set_cell_style get_column_style set_column_style
-    get_row_style set_row_style
-  ].freeze
-
   # Ruby name => Python name, where the two bindings chose differently.
   PYTHON_RENAMES = {
     "number_to_column" => "column_name_from_number",
@@ -71,10 +63,9 @@ module Parity
     valid_defined_name? batch to_xlsx_bytes
   ].freeze
 
-  # Engine methods the scan cannot reach: it reads only `impl Model` in
-  # `src/*.rs` and `impl UserModel` in `src/user_model/*.rs`, so anything behind
-  # `workbook.*` or in the export crate is invisible. The hidden readers are on
-  # the engine's Model only; UserModel exposes them through `get_model`.
+  # Engine functionality that is not a method of the class itself: the xlsx and
+  # icalc writers live in the export crate, and the hidden readers are on the
+  # engine's Model only (UserModel reaches them through `get_model`).
   ENGINE_ELSEWHERE = %w[
     save_to_xlsx save_to_icalc
     is_row_hidden is_column_hidden
@@ -195,182 +186,85 @@ module Parity
     api
   end
 
-  # `@!method name(a, b)` stubs per class, as {name => documented arity}.
-  def doc_stubs(class_name)
-    src = File.read(NATIVE_METHODS)
-    body = src[/^  class #{class_name}\b(.*?)^  end/m].to_s
-    body.scan(/^\s*# @!method (\w+)(?:\(([^)]*)\))?/).to_h do |name, args|
-      [name, args.to_s.split(",").count { |a| !a.strip.empty? }]
+  # The engine's public API, from rustdoc's JSON output for the `ironcalc_base`
+  # we build against: `{"version" => "0.8.3", "Model" => {name => [param names]},
+  # "UserModel" => {...}}`, receiver excluded. The JSON output is a nightly
+  # feature; RUSTC_BOOTSTRAP unlocks it on a stable toolchain. Nil if it fails.
+  def engine_api
+    return @engine_api if defined?(@engine_api)
+
+    _, status = Open3.capture2e(
+      {"RUSTC_BOOTSTRAP" => "1"},
+      "cargo", "rustdoc", "-q", "-p", "ironcalc_base", "--target-dir", RUSTDOC_TARGET,
+      "--", "-Z", "unstable-options", "--output-format", "json",
+      chdir: ROOT
+    )
+    return @engine_api = nil unless status.success?
+
+    doc = JSON.parse(File.read(File.join(RUSTDOC_TARGET, "doc", "ironcalc_base.json")))
+    @engine_api = CLASSES.to_h { |name| [name, rustdoc_methods(doc, name)] }
+    @engine_api["version"] = doc["crate_version"]
+    @engine_api
+  end
+
+  # Public methods of the engine's struct named `type_name`, across all of its
+  # inherent `impl` blocks. `paths` records it under its defining module
+  # (`ironcalc_base::model::Model`), not the crate-root re-export.
+  def rustdoc_methods(doc, type_name)
+    index = doc["index"]
+    id = doc["paths"].find { |_, p| p["crate_id"].zero? && p["kind"] == "struct" && p["path"].last == type_name }&.first
+    return {} unless id
+
+    index[id]["inner"]["struct"]["impls"]
+      .map { |impl_id| index[impl_id.to_s]["inner"]["impl"] }
+      .select { |impl| impl["trait"].nil? }
+      .flat_map { |impl| impl["items"].map { |item_id| index[item_id.to_s] } }
+      .select { |item| item["visibility"] == "public" && item["inner"].key?("function") }
+      .to_h { |fn| [fn["name"], fn["inner"]["function"]["sig"]["inputs"].map(&:first) - ["self"]] }
+  end
+
+  PYTHON_INTROSPECT = <<~PYTHON.freeze
+    import inspect, json, ironcalc
+
+    def surface(obj):
+        return {name: inspect.getdoc(getattr(obj, name)) or ""
+                for name in dir(obj) if not name.startswith("_")}
+
+    module = {name: doc for name, doc in surface(ironcalc).items()
+              if callable(getattr(ironcalc, name)) and not inspect.isclass(getattr(ironcalc, name))}
+    print(json.dumps({"Model": surface(ironcalc.Model),
+                      "UserModel": surface(ironcalc.UserModel),
+                      "module": module}))
+  PYTHON
+
+  # The Python bindings' API, from introspecting the published wheel whose
+  # version matches the engine's: `{"Model" => {name => docstring}, ...}`. uv
+  # provides the throwaway environment. Nil if it fails (e.g. offline, no uv).
+  def python_api(version)
+    return @python_api if defined?(@python_api)
+
+    out, status = Open3.capture2(
+      "uv", "run", "--quiet", "--no-project", "--with", "ironcalc==#{version}",
+      "python", "-c", PYTHON_INTROSPECT
+    )
+    @python_api = status.success? ? JSON.parse(out) : nil
+  rescue Errno::ENOENT
+    @python_api = nil
+  end
+
+  # Methods YARD documents on `IronCalc::<class_name>`, `@!method` stubs and
+  # inline-documented Ruby methods alike, as {name => YARD::CodeObjects::MethodObject}.
+  def documented(class_name)
+    @registry ||= begin
+      YARD::Logger.instance.level = YARD::Logger::ERROR
+      YARD::Registry.clear
+      YARD.parse(File.join(ROOT, "lib", "**", "*.rb"))
+      true
     end
-  end
-
-  # Extracts `pub fn` names inside `impl <type_name>` blocks (skipping trait impls)
-  # across the given Rust files. Naive brace counting — fine for these sources.
-  def rust_impl_methods(paths, type_name)
-    methods = []
-    paths.each do |path|
-      next unless File.exist?(path)
-
-      in_impl = false
-      impl_depth = 0
-      depth = 0
-      File.foreach(path) do |line|
-        if !in_impl && line.include?("{") && line !~ / for / &&
-            line =~ /\bimpl\b[^{]*\b#{Regexp.escape(type_name)}\b/
-          in_impl = true
-          impl_depth = depth
-        end
-        methods << Regexp.last_match(1) if in_impl && line =~ /pub fn (\w+)/
-        depth += line.count("{") - line.count("}")
-        in_impl = false if in_impl && depth <= impl_depth
-      end
-    end
-    methods.uniq.sort
-  end
-
-  # `pub fn` parameter counts (excluding the receiver) inside `impl <type_name>`
-  # blocks, as {name => count}. Same naive brace counting as `rust_impl_methods`,
-  # but reads whole signatures, which rustfmt spreads over several lines.
-  def rust_impl_arities(paths, type_name)
-    arities = {}
-    paths.each do |path|
-      next unless File.exist?(path)
-
-      in_impl = false
-      impl_depth = 0
-      depth = 0
-      signature = nil
-      File.foreach(path) do |line|
-        if !in_impl && line.include?("{") && line !~ / for / &&
-            line =~ /\bimpl\b[^{]*\b#{Regexp.escape(type_name)}\b/
-          in_impl = true
-          impl_depth = depth
-        end
-        signature = +"" if in_impl && signature.nil? && line =~ /pub fn \w+/
-        if signature
-          signature << line
-          if (m = signature.match(/pub fn (\w+)\s*(?:<[^(]*>)?\s*\((.*?)\)\s*(?:->|\{|where)/m))
-            arities[m[1]] ||= rust_params(m[2]).count { |p| p !~ /\bself\z/ }
-            signature = nil
-          end
-        end
-        depth += line.count("{") - line.count("}")
-        in_impl = false if in_impl && depth <= impl_depth
-      end
-    end
-    arities
-  end
-
-  # Splits a Rust parameter list on the commas outside any `<>`, `()` or `[]`.
-  def rust_params(list)
-    params, current, nesting = [], +"", 0
-    list.each_char do |c|
-      nesting += 1 if "<([".include?(c)
-      nesting -= 1 if ">)]".include?(c)
-      if c == "," && nesting.zero?
-        params << current.strip
-        current = +""
-      else
-        current << c
-      end
-    end
-    params << current.strip
-    params.reject(&:empty?)
-  end
-
-  # Ruby methods that share an engine method's name but not its signature: the
-  # same number of parameters, all positional and required. Checked against the
-  # class's own engine counterpart first, then the other engine class's.
-  def signature_drift(params, own_arities, other_arities)
-    params.filter_map do |name, kinds|
-      expected = own_arities.fetch(name) { other_arities[name] }
-      next if expected.nil?
-      next if kinds.all?("req") && kinds.size == expected
-
-      "#{name} (ruby: #{kinds.size} #{kinds.uniq.join("/")}, engine: #{expected} positional)"
-    end
-  end
-
-  # Top-level `pub fn` (module functions) in a Rust file — those not inside any impl.
-  def rust_module_fns(path)
-    return [] unless File.exist?(path)
-
-    fns = []
-    depth = 0
-    File.foreach(path) do |line|
-      fns << Regexp.last_match(1) if depth.zero? && line =~ /pub fn (\w+)/
-      depth += line.count("{") - line.count("}")
-    end
-    fns.uniq.sort
-  end
-
-  # Memoized: every caller below would otherwise re-shell out to cargo.
-  def engine_package
-    return @engine_package if defined?(@engine_package)
-
-    @engine_package = begin
-      out, status = Open3.capture2("cargo", "metadata", "--format-version", "1")
-      status.success? ? JSON.parse(out)["packages"].find { |p| p["name"] == "ironcalc_base" } : nil
-    rescue
-      nil
-    end
-  end
-
-  def engine_base_src
-    pkg = engine_package
-    pkg && File.join(File.dirname(pkg["manifest_path"]), "src")
-  end
-
-  def engine_version
-    engine_package&.fetch("version")
-  end
-
-  # `impl Model` is spread over several top-level files (model.rs, actions.rs,
-  # styles.rs, units.rs, ...). `functions/` and `test/` also carry `impl Model`
-  # blocks, but those are formula implementations, not API — hence top level only.
-  def engine_model_files(src)
-    Dir[File.join(src, "*.rs")]
-  end
-
-  # The Python bindings ship their Rust sources in the PyPI sdist, whose version
-  # tracks the engine's — so the surface we compare against is the released one
-  # for the version we build against, with no IronCalc checkout to keep in sync.
-  # PyModel and PyUserModel live in their own files from 0.8.3 on, hence the glob.
-  def python_sources(engine_version)
-    return @python_sources if defined?(@python_sources)
-
-    src = File.join(PYTHON_CACHE, "ironcalc-#{engine_version}", "bindings", "python", "src")
-    fetch_python_sdist(engine_version) unless Dir.exist?(src)
-    files = Dir[File.join(src, "*.rs")].sort
-    @python_sources = files.empty? ? nil : files
-  end
-
-  # Extracts the binding sources alone; the sdist also carries the engine and its
-  # xlsx fixtures, which we already have from the Cargo registry.
-  def fetch_python_sdist(version)
-    release = JSON.parse(URI.parse("https://pypi.org/pypi/ironcalc/#{version}/json").read)
-    url = release["urls"].find { |u| u["packagetype"] == "sdist" }&.fetch("url")
-    return unless url
-
-    FileUtils.mkdir_p(PYTHON_CACHE)
-    Dir.mktmpdir do |tmp|
-      sdist = File.join(tmp, "ironcalc.tar.gz")
-      File.binwrite(sdist, URI.parse(url).read)
-      system("tar", "xzf", sdist, "-C", PYTHON_CACHE,
-        "ironcalc-#{version}/bindings/python/src")
-    end
-  rescue
-    nil
-  end
-
-  # `[name, engine_methods, ruby_methods, renames]` per class, scanned once.
-  def engine_targets(src, ruby)
-    [
-      ["Model", rust_impl_methods(engine_model_files(src), "Model"),
-        ruby["Model"], MODEL_RENAMES],
-      ["UserModel", rust_impl_methods(Dir[File.join(src, "user_model", "*.rs")], "UserModel"),
-        ruby["UserModel"], USERMODEL_RENAMES]
-    ]
+    YARD::Registry.at("IronCalc::#{class_name}")
+      .meths(inherited: false, included: false)
+      .select { |m| m.scope == :instance && m.visibility == :public }
+      .to_h { |m| [m.name.to_s, m] }
   end
 
   # A Ruby method maps to an engine method by rename, or by dropping the `_json`
@@ -388,6 +282,24 @@ module Parity
     missing = engine - exposed - ENGINE_OMIT_SHARED - ENGINE_OMIT.fetch(class_name)
     patterned, missing = missing.partition { |m| ENGINE_OMIT_PATTERNS.any? { |re| m =~ re } }
     missing.partition { |m| ENGINE_DEFERRED.include?(m) } << patterned.sort
+  end
+
+  # Names we expose with no engine counterpart — typos and stale renames.
+  def invented_names(engine, ruby_methods, renames)
+    ruby_methods.map { |m| engine_name(m, renames) } - engine - RUBY_COMPOSED - ENGINE_ELSEWHERE
+  end
+
+  # Ruby methods that share an engine method's name but not its signature: the
+  # same number of parameters, all positional and required. Checked against the
+  # class's own engine counterpart first, then the other engine class's.
+  def signature_drift(params, own_methods, other_methods)
+    params.filter_map do |name, kinds|
+      expected = own_methods.fetch(name) { other_methods[name] }&.size
+      next if expected.nil?
+      next if kinds.all?("req") && kinds.size == expected
+
+      "#{name} (ruby: #{kinds.size} #{kinds.uniq.join("/")}, engine: #{expected} positional)"
+    end
   end
 
   # Python methods we neither expose nor have already accounted for. Applies the
@@ -409,69 +321,19 @@ module Parity
     missing.reject { |m| ENGINE_OMIT_PATTERNS.any? { |re| m =~ re } }
   end
 
-  # Stub names that carry no prose, only tags. A bare `@return` tells a reader
-  # nothing the signature did not.
-  def undescribed_stubs(class_name)
-    body = File.read(NATIVE_METHODS)[/^  class #{class_name}\b(.*?)^  end/m].to_s
-    bare, current = [], nil
-    body.each_line do |line|
-      case line
-      when /^\s*# @!method (\w+)/
-        bare << current[:name] if current && current[:prose].empty?
-        current = {name: $1, prose: []}
-      when /^\s*#\s?(.*)$/
-        next unless current
-
-        text = $1.strip
-        current[:prose] << text unless text.empty? || text.start_with?("@")
-      when /^\s*$/
-        next
-      else
-        bare << current[:name] if current && current[:prose].empty?
-        current = nil
-      end
-    end
-    bare << current[:name] if current && current[:prose].empty?
-    bare
-  end
-
-  # Python descriptions, keyed by method, for methods it documents.
-  def python_descriptions(sources)
-    (sources || []).each_with_object({}) do |path, acc|
-      lines = File.readlines(path)
-      lines.each_with_index do |line, i|
-        next unless line =~ /pub fn (\w+)/
-
-        name, doc, j = $1, [], i - 1
-        while j >= 0 && lines[j] =~ %r{^\s*///\s?(.*)$}
-          doc.unshift($1.strip)
-          j -= 1
-        end
-        acc[name] = doc.join(" ") unless doc.empty?
-      end
-    end
-  end
-
-  # Doc drift: `@!method` stubs vs the methods actually registered. Returns
-  # [arity mismatches, undocumented natives, stale stubs].
+  # Doc drift: documented methods vs the methods actually defined. Returns
+  # [arity mismatches, undocumented, stale].
   def doc_gap(class_name, data)
-    stubs = doc_stubs(class_name)
-    native = data["own"]
-    prepended = data["prepended"]
+    docs = documented(class_name)
+    own = data["own"]
 
-    mismatched = stubs.filter_map do |name, documented|
+    mismatched = docs.filter_map do |name, doc|
       actual = data["arity"][name]
-      next if actual.nil? || actual.negative? || actual == documented
+      next if actual.nil? || actual.negative? || actual == doc.parameters.size
 
-      "#{name} (stub #{documented}, actual #{actual})"
+      "#{name} (documented #{doc.parameters.size}, actual #{actual})"
     end
-    undocumented = native - stubs.keys - prepended - DOCUMENTED_IN_RUBY
-    [mismatched, undocumented.sort, (stubs.keys - native).sort]
-  end
-
-  # Names we expose with no engine counterpart — typos and stale renames.
-  def invented_names(engine, ruby_methods, renames)
-    ruby_methods.map { |m| engine_name(m, renames) } - engine - RUBY_COMPOSED - ENGINE_ELSEWHERE
+    [mismatched, (own - docs.keys).sort, (docs.keys - own).sort]
   end
 end
 
@@ -493,21 +355,22 @@ task :parity do
   end
 
   # --- 1. Engine shape (authoritative) --------------------------------------
-  section.call("Engine surface (authoritative, version-pinned)")
-  if (src = Parity.engine_base_src)
-    targets = Parity.engine_targets(src, ruby)
-    # A scan that finds nothing means the brace counting broke on a new layout,
-    # not that the engine lost its API.
-    empty = targets.select { |_, engine, _, _| engine.empty? }.map(&:first)
+  engine = Parity.engine_api
+  if engine
+    section.call("Engine surface v#{engine["version"]} (authoritative)")
+    targets = {"Model" => Parity::MODEL_RENAMES, "UserModel" => Parity::USERMODEL_RENAMES}
+    # Finding nothing means the rustdoc JSON layout changed, not that the engine
+    # lost its API.
+    empty = targets.keys.select { |name| engine[name].empty? }
     hard_gaps += empty.size
-    list.call("scanned no methods at all (the Rust scan is broken)", empty)
-
-    targets.each do |name, engine, ruby_methods, renames|
-      deferred, unreviewed, patterned = Parity.engine_gap(name, engine, ruby_methods, renames)
+    list.call("found no methods at all (has the rustdoc JSON format changed?)", empty)
+    targets.each do |name, renames|
+      methods = engine[name].keys
+      deferred, unreviewed, patterned = Parity.engine_gap(name, methods, ruby[name], renames)
       hard_gaps += unreviewed.size
       if unreviewed.empty?
         puts "  ✓ #{name}: every non-omitted engine method is exposed " \
-             "(#{engine.size} scanned, #{deferred.size} deferred, " \
+             "(#{methods.size} in the engine, #{deferred.size} deferred, " \
              "#{patterned.size} absorbed by ENGINE_OMIT_PATTERNS)"
       else
         list.call("#{name}: engine methods NOT exposed and NOT allowlisted", unreviewed)
@@ -519,8 +382,8 @@ task :parity do
     # Names we expose that the engine does not have — typos and stale renames.
     section.call("Invented names (expect none)")
     invented_total = 0
-    targets.each do |name, engine, ruby_methods, renames|
-      invented = Parity.invented_names(engine, ruby_methods, renames)
+    targets.each do |name, renames|
+      invented = Parity.invented_names(engine[name].keys, ruby[name], renames)
       invented_total += invented.size
       list.call("#{name}: no such engine method (typo, or a rename to record)", invented)
     end
@@ -530,14 +393,10 @@ task :parity do
     # A Ruby method that shares an engine name keeps the engine's signature;
     # anything friendlier goes in a helper under its own name.
     section.call("Signatures of engine-named methods (expect none to differ)")
-    arities = {
-      "Model" => Parity.rust_impl_arities(Parity.engine_model_files(src), "Model"),
-      "UserModel" => Parity.rust_impl_arities(Dir[File.join(src, "user_model", "*.rs")], "UserModel")
-    }
     drift_total = 0
     Parity::CLASSES.each do |name|
       other = (Parity::CLASSES - [name]).first
-      drift = Parity.signature_drift(introspected[name]["params"], arities[name], arities[other])
+      drift = Parity.signature_drift(introspected[name]["params"], engine[name], engine[other])
       drift_total += drift.size
       list.call("#{name}: signature differs from the engine's", drift)
     end
@@ -545,38 +404,29 @@ task :parity do
     puts "  ✓ every engine-named method takes the engine's parameters" if drift_total.zero?
   else
     engine_skipped = true
-    skipped << "engine surface — cargo metadata could not resolve ironcalc_base"
-    puts "  ✗ skipped: cargo metadata could not resolve ironcalc_base"
+    skipped << "engine surface — `cargo rustdoc` could not document ironcalc_base"
+    puts "\n== Engine surface ==\n  ✗ skipped: `cargo rustdoc` could not document ironcalc_base"
   end
 
   # --- 2. Doc stubs (native methods are invisible to YARD) -------------------
-  section.call("Doc stubs (expect every native method documented, arities matching)")
+  section.call("Documentation (expect every method documented, arities matching)")
   Parity::CLASSES.each do |name|
     mismatched, undocumented, stale = Parity.doc_gap(name, introspected[name])
     hard_gaps += mismatched.size + undocumented.size + stale.size
-    list.call("#{name}: stub arity disagrees with the method", mismatched)
-    list.call("#{name}: registered but has no @!method stub", undocumented)
-    list.call("#{name}: stub for a method that no longer exists", stale)
+    list.call("#{name}: documented arity disagrees with the method", mismatched)
+    list.call("#{name}: defined but not documented", undocumented)
+    list.call("#{name}: documented but no longer defined", stale)
     if (mismatched + undocumented + stale).empty?
-      puts "  ✓ #{name}: #{Parity.doc_stubs(name).size} stubs, all present and matching"
+      puts "  ✓ #{name}: #{Parity.documented(name).size} methods, all documented and matching"
     end
   end
 
-  # Advisory: stubs with no prose, where Python has a description to borrow.
-  py_desc = Parity.python_descriptions(Parity.python_sources(Parity.engine_version))
-  Parity::CLASSES.each do |name|
-    borrowable = Parity.undescribed_stubs(name).select { |m| py_desc.key?(m) }
-    list.call("#{name}: no description, but Python documents it", borrowable)
-  end
-
   # --- 3. Python bindings (advisory: never fall behind) ----------------------
-  if (py = Parity.python_sources(Parity.engine_version))
-    section.call("Python bindings v#{Parity.engine_version}")
-    {
-      "Model" => Parity.rust_impl_methods(py, "PyModel"),
-      "UserModel" => Parity.rust_impl_methods(py, "PyUserModel"),
-      "module" => py.flat_map { |p| Parity.rust_module_fns(p) }.uniq.sort
-    }.each do |name, py_methods|
+  python = engine && Parity.python_api(engine["version"])
+  if python
+    section.call("Python bindings v#{engine["version"]}")
+    %w[Model UserModel module].each do |name|
+      py_methods = python[name].keys
       missing = Parity.python_gap(name, py_methods, ruby[name])
       hard_gaps += missing.size
       if missing.empty?
@@ -588,10 +438,15 @@ task :parity do
         list.call("in Python #{name}, MISSING from Ruby", missing)
       end
     end
+
+    # Advisory: methods we document only with tags, where Python has prose to borrow.
+    Parity::CLASSES.each do |name|
+      borrowable = Parity.documented(name).select { |m, doc| doc.docstring.blank? && !python[name][m].to_s.empty? }
+      list.call("#{name}: no description, but Python documents it", borrowable.keys)
+    end
   else
-    skipped << "Python bindings — no sdist for " \
-               "#{Parity.engine_version || "the engine"} could be fetched from PyPI"
-    puts "\n== Python bindings ==\n  ✗ skipped: PyPI sdist unavailable"
+    skipped << "Python bindings — the ironcalc wheel could not be introspected (needs uv and network)"
+    puts "\n== Python bindings ==\n  ✗ skipped: the ironcalc wheel could not be introspected"
   end
 
   puts "\n#{"-" * 60}"
