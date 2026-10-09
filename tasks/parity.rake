@@ -1,5 +1,5 @@
 # `rake parity` — reports API-surface drift against the engine and the Python
-# bindings. What the checks are for, and how to act on the report, is in CLAUDE.md.
+# bindings. What the checks are for, and how to act on the report, is in AGENTS.md.
 #
 # Ruby's surface comes from runtime introspection, so it covers native and
 # Ruby-layer methods alike. The other two come from scanning `pub fn` inside the

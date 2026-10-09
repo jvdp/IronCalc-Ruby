@@ -236,6 +236,18 @@ styles, `batch`, and xlsx in memory (`to_xlsx_bytes` / `load_from_xlsx_bytes`).
 These numbers move with every engine release; `rake parity` reports the
 current picture.
 
+## AI-assisted development
+
+These bindings are written and maintained with substantial help from
+[Claude Code](https://claude.com/claude-code), Anthropic's coding agent. A
+human maintainer directs the work, reviews every change and makes the releases.
+
+Correctness doesn't rest on review alone. The test suite, run in CI on every
+push, re-runs the engine's own formula regression fixtures through the binding.
+`rake parity` checks the API surface and method signatures against the engine
+and the Python bindings. The conventions agents follow here are in
+[AGENTS.md](AGENTS.md).
+
 ## License
 
 Dual-licensed under [MIT](LICENSE-MIT.md) or [Apache-2.0](LICENSE-Apache-2.0.md),
