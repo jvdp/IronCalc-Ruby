@@ -144,15 +144,19 @@ Exposed on both classes: `get_defined_name_list` (also `defined_names`), `new_de
 - The layout of the crate's `tests/calc_tests` fixtures: they sit in per-category subdirectories, so `fixtures_helper.rb` globs `**`. A fixture count that drops without failures or skips means the glob missed them.
 - `UserModel` spells some operations as ranges (`set_columns_width` / `set_rows_height`) where `Model` has per-item ones (`set_column_width` / `set_row_height`); the Ruby names are singular on both.
 
+## Workflow
+
+Changes reach `main` through pull requests, not direct pushes; the one exception is the `prepare version` commit (below). Work on a branch off `main`, keep one logical change per commit, and open a PR for review. Each commit should build and pass `rake test` on its own, so the PR can be reviewed commit by commit. Before opening it, run `rake test`, `STRICT=1 rake parity`, `rake doc` and `standardrb`. Agents commit, push and open PRs only when asked.
+
 ## Release
 
 Versioning is `<engine version>.<binding patch>` — e.g. `0.8.3.1` would be the 2nd binding release against engine 0.8.3. The first three segments track the engine dependency and the docs site groups on them, so don't move them for binding-only work.
 
-Maintainers run releases; **agents don't commit, tag, or push unless asked.**
+Maintainers run releases, tagging `main` after the PR merges; **agents don't tag.**
 
 ### Version bumps live in their own commit
 
-`lib/ironcalc/version.rb` and the `CHANGELOG.md` section are **not** touched by feature commits. They go in a single `prepare version <x>` commit at the end, holding exactly those two files — the convention every release here has followed. The CHANGELOG section is written *there*, describing everything since the last release, rather than accumulated bullet-by-bullet.
+`lib/ironcalc/version.rb` and the `CHANGELOG.md` section are **not** touched by feature commits. They go in a single `prepare version <x>` commit that the maintainer makes directly on `main` once the release's PRs have merged, holding exactly those two files — the convention every release here has followed. The CHANGELOG section is written *there*, describing everything since the last release, rather than accumulated bullet-by-bullet.
 
 This matters more than it looks when bumping the engine, because our version encodes the engine version: it is tempting to fold `version.rb` into the engine-bump commit. Don't — a release usually spans several commits, and dating it at the first one makes the CHANGELOG describe code that does not exist yet at that point.
 
