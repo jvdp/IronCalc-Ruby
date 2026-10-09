@@ -40,12 +40,12 @@ class SurfaceTest < Minitest::Test
   def test_cell_styles_read_as_hash
     model = load_fixture("basic_text.xlsx")
     # Row 1: A bold, B italic, C underline, F strikethrough (see engine test.rs).
-    assert_equal true, model.get_cell_style(0, 1, 1)["font"]["b"]
-    assert_equal true, model.get_cell_style(0, 1, 2)["font"]["i"]
-    assert_equal true, model.get_cell_style(0, 1, 3)["font"]["u"]
-    assert_equal true, model.get_cell_style(0, 1, 6)["font"]["strike"]
+    assert_equal true, model.get_style_for_cell(0, 1, 1)[:font][:b]
+    assert_equal true, model.get_style_for_cell(0, 1, 2)[:font][:i]
+    assert_equal true, model.get_style_for_cell(0, 1, 3)[:font][:u]
+    assert_equal true, model.get_style_for_cell(0, 1, 6)[:font][:strike]
     # A1 is bold but not italic.
-    refute_equal true, model.get_cell_style(0, 1, 1)["font"]["i"]
+    refute_equal true, model.get_style_for_cell(0, 1, 1)[:font][:i]
   end
 
   def test_formula_evaluation_from_fixture
@@ -71,19 +71,19 @@ class SurfaceTest < Minitest::Test
 
   def test_cell_style_roundtrip_via_hash
     model = IronCalc.create("m", "en", "UTC", "en")
-    style = model.get_cell_style(0, 1, 1)
-    style["font"]["b"] = true
-    style["font"]["i"] = true
+    style = model.get_style_for_cell(0, 1, 1)
+    style[:font][:b] = true
+    style[:font][:i] = true
     model.set_cell_style(0, 1, 1, style)
-    roundtripped = model.get_cell_style(0, 1, 1)
-    assert_equal true, roundtripped["font"]["b"]
-    assert_equal true, roundtripped["font"]["i"]
+    roundtripped = model.get_style_for_cell(0, 1, 1)
+    assert_equal true, roundtripped[:font][:b]
+    assert_equal true, roundtripped[:font][:i]
   end
 
-  def test_get_cell_content_returns_formula
+  def test_get_localized_cell_content_returns_formula
     model = IronCalc.create("m", "en", "UTC", "en")
     model.set_user_input(0, 1, 1, "=1+2")
-    assert_equal "=1+2", model.get_cell_content(0, 1, 1)
+    assert_equal "=1+2", model.get_localized_cell_content(0, 1, 1)
   end
 
   # --- Mutation ---------------------------------------------------------------
@@ -101,12 +101,12 @@ class SurfaceTest < Minitest::Test
     assert_equal "marker", model.get_formatted_cell_value(0, 5, 1)
   end
 
-  def test_clear_cell_contents
+  def test_range_clear_contents
     model = IronCalc.create("m", "en", "UTC", "en")
     model.set_user_input(0, 1, 1, "gone")
     model.evaluate
     assert_equal "gone", model.get_formatted_cell_value(0, 1, 1)
-    model.clear_cell_contents(0, 1, 1)
+    model.range_clear_contents({sheet: 0, row: 1, column: 1, width: 1, height: 1})
     assert_equal "", model.get_formatted_cell_value(0, 1, 1)
   end
 
@@ -130,8 +130,8 @@ class SurfaceTest < Minitest::Test
 
   def test_frozen_counts_setters
     model = IronCalc.create("m", "en", "UTC", "en")
-    model.set_frozen_rows_count(0, 2)
-    model.set_frozen_columns_count(0, 3)
+    model.set_frozen_rows(0, 2)
+    model.set_frozen_columns(0, 3)
     assert_equal 2, model.get_frozen_rows_count(0)
     assert_equal 3, model.get_frozen_columns_count(0)
   end
@@ -152,7 +152,7 @@ class SurfaceTest < Minitest::Test
     model.new_sheet
     assert_equal 3, model.get_worksheets_properties.size
 
-    model.rename_sheet(0, "Renamed")
+    model.rename_sheet_by_index(0, "Renamed")
     assert_equal "Renamed", model.get_worksheets_properties.first[:name]
 
     model.set_sheet_color(0, "#FF0000")
@@ -167,7 +167,7 @@ class SurfaceTest < Minitest::Test
   def test_save_to_xlsx_roundtrip
     model = IronCalc.create("m", "en", "UTC", "en")
     model.set_user_input(0, 1, 1, "=6*7")
-    model.rename_sheet(0, "Calc")
+    model.rename_sheet_by_index(0, "Calc")
     model.evaluate
 
     Dir.mktmpdir do |dir|
@@ -194,7 +194,7 @@ class SurfaceTest < Minitest::Test
   def test_to_xlsx_bytes_roundtrip
     model = IronCalc.create("m", "en", "UTC", "en")
     model.set_user_input(0, 1, 1, "=6*7")
-    model.rename_sheet(0, "Calc")
+    model.rename_sheet_by_index(0, "Calc")
     model.evaluate
 
     bytes = model.to_xlsx_bytes
@@ -225,7 +225,7 @@ class SurfaceTest < Minitest::Test
   def test_load_mutate_save_reload
     model = load_fixture("openpyxl_example.xlsx")
     model.set_user_input(0, 10, 1, "=2+2")
-    model.rename_sheet(0, "Mutated")
+    model.rename_sheet_by_index(0, "Mutated")
     model.evaluate
 
     Dir.mktmpdir do |dir|

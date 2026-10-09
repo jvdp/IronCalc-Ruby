@@ -231,16 +231,16 @@ module IronCalc
     #   @return [void]
     #   @raise [IronCalc::Error]
 
-    # @!method clear_cell_contents(sheet, row, column)
-    #   Clears a cell's contents (not its style).
-    #   @param sheet [Integer]
-    #   @param row [Integer]
-    #   @param column [Integer]
+    # @!method range_clear_contents(range)
+    #   Clears the contents (not the style) of every cell in a range.
+    #   @param range [Hash] the engine's +Area+: +{sheet:, row:, column:, width:,
+    #     height:}+
     #   @return [void]
     #   @raise [IronCalc::Error]
 
-    # @!method get_cell_content(sheet, row, column)
-    #   Returns the cell's content: the formula (e.g. "=A1+1") or literal text.
+    # @!method get_localized_cell_content(sheet, row, column)
+    #   Returns the cell's content in the model's locale: the formula (e.g.
+    #   "=A1+1") or literal text.
     #   @param sheet [Integer]
     #   @param row [Integer]
     #   @param column [Integer]
@@ -265,35 +265,60 @@ module IronCalc
     #   @return [String]
     #   @raise [IronCalc::Error]
 
-    # @!method get_cell_style_json(sheet, row, column)
-    #   @api private
-    #   JSON backing for `get_cell_style`. Prefer the Hash-returning wrapper.
-    #   @return [String]
+    # @!method get_style_for_cell(sheet, row, column)
+    #   Returns the cell style as a Hash with Symbol keys, e.g.
+    #   +{num_fmt: "general", font: {b: false, ...}, ...}+.
+    #   @param sheet [Integer]
+    #   @param row [Integer]
+    #   @param column [Integer]
+    #   @return [Hash]
+    #   @raise [IronCalc::Error]
 
-    # @!method set_cell_style_json(sheet, row, column, style_json)
-    #   @api private
-    #   JSON backing for `set_cell_style`. Prefer the Hash-accepting wrapper.
+    # @!method set_cell_style(sheet, row, column, style)
+    #   Sets the cell style. Takes a *complete* style, as returned by
+    #   {#get_style_for_cell}: read one, change it, pass it back. Keys may be
+    #   Symbols or Strings.
+    #   @param sheet [Integer]
+    #   @param row [Integer]
+    #   @param column [Integer]
+    #   @param style [Hash]
     #   @return [void]
+    #   @raise [IronCalc::Error] also if the style is incomplete
 
-    # @!method get_column_style_json(sheet, column)
-    #   @api private
-    #   JSON backing for `get_column_style`. Prefer the Hash-returning wrapper.
-    #   @return [String, nil]
+    # @!method get_column_style(sheet, column)
+    #   The default style for a whole column, as a Hash, or nil if the column
+    #   carries no style of its own.
+    #   @param sheet [Integer]
+    #   @param column [Integer]
+    #   @return [Hash, nil]
+    #   @raise [IronCalc::Error]
 
-    # @!method get_row_style_json(sheet, row)
-    #   @api private
-    #   JSON backing for `get_row_style`. Prefer the Hash-returning wrapper.
-    #   @return [String, nil]
+    # @!method get_row_style(sheet, row)
+    #   The default style for a whole row, as a Hash, or nil if the sheet holds
+    #   no record for that row. A row whose style was deleted reads back as the
+    #   default style rather than nil; the column equivalent returns nil.
+    #   @param sheet [Integer]
+    #   @param row [Integer]
+    #   @return [Hash, nil]
+    #   @raise [IronCalc::Error]
 
-    # @!method set_column_style_json(sheet, column, style_json)
-    #   @api private
-    #   JSON backing for `set_column_style`. Prefer the Hash-accepting wrapper.
+    # @!method set_column_style(sheet, column, style)
+    #   Sets the default style for a whole column. Takes a complete style, as
+    #   {#set_cell_style} does.
+    #   @param sheet [Integer]
+    #   @param column [Integer]
+    #   @param style [Hash]
     #   @return [void]
+    #   @raise [IronCalc::Error]
 
-    # @!method set_row_style_json(sheet, row, style_json)
-    #   @api private
-    #   JSON backing for `set_row_style`. Prefer the Hash-accepting wrapper.
+    # @!method set_row_style(sheet, row, style)
+    #   Sets the default style for a whole row. Takes a complete style, as
+    #   {#set_cell_style} does.
+    #   @param sheet [Integer]
+    #   @param row [Integer]
+    #   @param style [Hash]
     #   @return [void]
+    #   @raise [IronCalc::Error]
 
     # @!method copy_cell_style(source_cell, destination_cell)
     #   Copies one cell's style (and nothing else) onto another cell, in any sheet.
@@ -410,15 +435,15 @@ module IronCalc
     #   @return [Integer]
     #   @raise [IronCalc::Error]
 
-    # @!method set_frozen_columns_count(sheet, count)
+    # @!method set_frozen_columns(sheet, frozen_columns)
     #   @param sheet [Integer]
-    #   @param count [Integer]
+    #   @param frozen_columns [Integer]
     #   @return [void]
     #   @raise [IronCalc::Error]
 
-    # @!method set_frozen_rows_count(sheet, count)
+    # @!method set_frozen_rows(sheet, frozen_rows)
     #   @param sheet [Integer]
-    #   @param count [Integer]
+    #   @param frozen_rows [Integer]
     #   @return [void]
     #   @raise [IronCalc::Error]
 
@@ -450,8 +475,15 @@ module IronCalc
     #   @return [void]
     #   @raise [IronCalc::Error]
 
-    # @!method rename_sheet(sheet, new_name)
-    #   @param sheet [Integer]
+    # @!method rename_sheet(old_name, new_name)
+    #   Renames the sheet called +old_name+.
+    #   @param old_name [String]
+    #   @param new_name [String]
+    #   @return [void]
+    #   @raise [IronCalc::Error]
+
+    # @!method rename_sheet_by_index(sheet_index, new_name)
+    #   @param sheet_index [Integer]
     #   @param new_name [String]
     #   @return [void]
     #   @raise [IronCalc::Error]
@@ -509,9 +541,11 @@ module IronCalc
     #   @raise [IronCalc::Error] with the reason, e.g. the name is already taken
     #     in that scope
 
-    # @!method clear_cell_all(sheet, row, column)
-    #   Clears a cell's contents *and* style, removing it entirely. Compare
-    #   +clear_cell_contents+, which keeps the style.
+    # @!method range_clear_all(area)
+    #   Clears the contents *and* style of every cell in a range, removing the
+    #   cells entirely. Compare +range_clear_contents+, which keeps the style.
+    #   @param area [Hash] the engine's +Area+: +{sheet:, row:, column:, width:,
+    #     height:}+
     #   @return [void]
     #   @raise [IronCalc::Error]
 
@@ -543,7 +577,7 @@ module IronCalc
     # @!method get_cell_value_by_index(sheet, row, column)
     #   The cell's value as a Ruby object — nil, String, Float or true/false —
     #   unformatted. Compare +get_formatted_cell_value+, which always returns a
-    #   String, and +get_cell_content+, which returns what the user typed.
+    #   String, and +get_localized_cell_content+, which returns what the user typed.
     #
     #   The engine has no error variant here, so an error cell comes back as the
     #   String +"#DIV/0!"+ and is indistinguishable from that literal text. Use
@@ -572,7 +606,7 @@ module IronCalc
     # @!method get_all_cells
     #   Every cell the workbook holds a record for, as +{ index:, row:, column: }+
     #   hashes (+index+ is the 0-based sheet index), ordered by sheet, then row,
-    #   then column. A cell emptied with +clear_cell_contents+ keeps its record
+    #   then column. A cell emptied with +range_clear_contents+ keeps its record
     #   and is still listed; combine with +is_empty_cell+ if you only want cells
     #   that have a value.
     #   @return [Array<Hash>]
@@ -672,11 +706,10 @@ module IronCalc
     #   @return [void]
     #   @raise [IronCalc::Error]
 
-    # @!method clear_cell_contents(sheet, row, column)
-    #   Clears a cell's contents (not its style).
-    #   @param sheet [Integer]
-    #   @param row [Integer]
-    #   @param column [Integer]
+    # @!method range_clear_contents(range)
+    #   Clears the contents (not the style) of every cell in a range. Undoable.
+    #   @param range [Hash] the engine's +Area+: +{sheet:, row:, column:, width:,
+    #     height:}+
     #   @return [void]
     #   @raise [IronCalc::Error]
 
@@ -705,22 +738,26 @@ module IronCalc
     #   @return [String]
     #   @raise [IronCalc::Error]
 
-    # @!method get_cell_style_json(sheet, row, column)
-    #   @api private
-    #   JSON backing for `get_cell_style`. Prefer the Hash-returning wrapper.
-    #   @return [String]
+    # @!method get_cell_style(sheet, row, column)
+    #   Returns the cell style as a Hash with Symbol keys, like
+    #   {Model#get_style_for_cell}.
+    #   @param sheet [Integer]
+    #   @param row [Integer]
+    #   @param column [Integer]
+    #   @return [Hash]
+    #   @raise [IronCalc::Error]
 
     # @!method update_range_style(range, style_path, value)
     #   Sets a single style property on every cell of a range, e.g. bold for
     #   B2:C10: +update_range_style({sheet: 0, row: 2, column: 2, width: 2,
     #   height: 9}, "font.b", "true")+. This is the user model's styling
     #   primitive; `set_cell_style` wraps it for whole-Hash convenience.
-    #   @param range [Hash] the engine's +Area+: exactly the keys +:sheet+,
-    #     +:row+, +:column+, +:width+ and +:height+
+    #   @param range [Hash] the engine's +Area+: +{sheet:, row:, column:, width:,
+    #     height:}+
     #   @param style_path [String] dotted path, e.g. "font.b", "fill.color"
     #   @param value [String]
     #   @return [void]
-    #   @raise [IronCalc::Error] also if +range+ has missing or extra keys
+    #   @raise [IronCalc::Error] also if +range+ is missing a key
 
     # @!method insert_rows(sheet, row, row_count)
     #   @param sheet [Integer]
@@ -762,16 +799,20 @@ module IronCalc
     #   @return [Float] height in pixels
     #   @raise [IronCalc::Error]
 
-    # @!method set_column_width(sheet, column, width)
+    # @!method set_columns_width(sheet, column_start, column_end, width)
+    #   Sets the width of columns +column_start+ to +column_end+, inclusive.
     #   @param sheet [Integer]
-    #   @param column [Integer]
+    #   @param column_start [Integer]
+    #   @param column_end [Integer]
     #   @param width [Float]
     #   @return [void]
     #   @raise [IronCalc::Error]
 
-    # @!method set_row_height(sheet, row, height)
+    # @!method set_rows_height(sheet, row_start, row_end, height)
+    #   Sets the height of rows +row_start+ to +row_end+, inclusive.
     #   @param sheet [Integer]
-    #   @param row [Integer]
+    #   @param row_start [Integer]
+    #   @param row_end [Integer]
     #   @param height [Float]
     #   @return [void]
     #   @raise [IronCalc::Error]
@@ -782,9 +823,11 @@ module IronCalc
     #   @return [Boolean]
     #   @raise [IronCalc::Error]
 
-    # @!method set_column_hidden(sheet, column, hidden)
+    # @!method set_columns_hidden(sheet, column_start, column_end, hidden)
+    #   Hides or shows columns +column_start+ to +column_end+, inclusive. Undoable.
     #   @param sheet [Integer]
-    #   @param column [Integer]
+    #   @param column_start [Integer]
+    #   @param column_end [Integer]
     #   @param hidden [Boolean]
     #   @return [void]
     #   @raise [IronCalc::Error]
@@ -795,9 +838,11 @@ module IronCalc
     #   @return [Boolean]
     #   @raise [IronCalc::Error]
 
-    # @!method set_row_hidden(sheet, row, hidden)
+    # @!method set_rows_hidden(sheet, row_start, row_end, hidden)
+    #   Hides or shows rows +row_start+ to +row_end+, inclusive. Undoable.
     #   @param sheet [Integer]
-    #   @param row [Integer]
+    #   @param row_start [Integer]
+    #   @param row_end [Integer]
     #   @param hidden [Boolean]
     #   @return [void]
     #   @raise [IronCalc::Error]
@@ -904,13 +949,17 @@ module IronCalc
     #   @raise [IronCalc::Error] with the reason, e.g. the name is already taken
     #     in that scope
 
-    # @!method clear_cell_all(sheet, row, column)
-    #   Clears a cell's contents *and* style. Undoable.
+    # @!method range_clear_all(range)
+    #   Clears the contents *and* style of every cell in a range. Undoable.
+    #   @param range [Hash] the engine's +Area+: +{sheet:, row:, column:, width:,
+    #     height:}+
     #   @return [void]
     #   @raise [IronCalc::Error]
 
-    # @!method clear_cell_formatting(sheet, row, column)
-    #   Clears a cell's style, keeping its contents. Undoable.
+    # @!method range_clear_formatting(range)
+    #   Clears the style of every cell in a range, keeping the contents. Undoable.
+    #   @param range [Hash] the engine's +Area+: +{sheet:, row:, column:, width:,
+    #     height:}+
     #   @return [void]
     #   @raise [IronCalc::Error]
 

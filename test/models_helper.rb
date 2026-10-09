@@ -15,7 +15,7 @@ module ModelsHelper
   # A complete style with whatever the block changes. Style setters reject a
   # partial Hash, so every style test starts here.
   def style_with(target = model)
-    style = target.get_cell_style(0, 1, 1)
+    style = target.get_style_for_cell(0, 1, 1)
     yield style
     style
   end

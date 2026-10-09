@@ -49,11 +49,11 @@ class CreateTest < Minitest::Test
 
   def test_cell_style_roundtrip
     model = IronCalc.create("model", "en", "UTC", "en")
-    style = model.get_cell_style(0, 1, 1)
-    style["font"]["b"] = true
+    style = model.get_style_for_cell(0, 1, 1)
+    style[:font][:b] = true
     model.set_cell_style(0, 1, 1, style)
 
-    assert_equal true, model.get_cell_style(0, 1, 1)["font"]["b"]
+    assert_equal true, model.get_style_for_cell(0, 1, 1)[:font][:b]
   end
 
   def test_cell_type

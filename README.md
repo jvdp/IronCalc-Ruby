@@ -39,8 +39,9 @@ um.get_formatted_cell_value(0, 1, 1)    # => "3"
 diffs = um.flush_send_queue             # binary diff to send to peers
 ```
 
-Coordinates: `sheet` is a 0-based index; `row` and `column` are 1-based. Styles
-are exchanged as plain Ruby hashes via `get_cell_style` / `set_cell_style`.
+Coordinates: `sheet` is a 0-based index; `row` and `column` are 1-based. Method
+names and signatures are the engine's own. Engine structs, such as styles and
+cell ranges, are plain Ruby Hashes keyed by their field names.
 
 ### Typed cell access
 
@@ -67,8 +68,15 @@ sheet index, the engine's field name). Clearing a
 cell's contents keeps its record, so filter with `is_empty_cell` if you want
 only cells that still hold a value.
 
-`clear_cell_contents` keeps the cell's style; `clear_cell_all` removes both.
-On `UserModel`, `clear_cell_formatting` does the opposite — style only.
+Clearing works on a range, given as the engine's `Area`:
+
+```ruby
+b2_c10 = {sheet: 0, row: 2, column: 2, width: 2, height: 9}
+model.range_clear_contents(b2_c10)   # keeps the style
+model.range_clear_all(b2_c10)        # contents and style
+```
+
+On `UserModel`, `range_clear_formatting` does the opposite — style only.
 
 ### Rows, columns and sheets
 
@@ -76,8 +84,8 @@ Rows and columns can carry a default style. As with `set_cell_style`, a style is
 a complete structure, so read one, change a field, and pass it back:
 
 ```ruby
-style = model.get_cell_style(0, 1, 1)
-style["num_fmt"] = "0.00"
+style = model.get_style_for_cell(0, 1, 1)
+style[:num_fmt] = "0.00"
 model.set_column_style(0, 2, style)
 model.get_column_style(0, 2)    # => Hash, or nil if the column has no style
 model.delete_column_style(0, 2)
@@ -150,8 +158,11 @@ Errors raised by the engine surface as `IronCalc::Error`.
 Both are compiled native extensions (Python via **pyo3**, Ruby via **magnus** /
 **rb-sys**) exposing a module named `ironcalc` backed by the IronCalc engine.
 
-Both follow the shape of the engine, so the two APIs line up closely and Python
-examples usually translate directly. They do not cover the same amount of it —
+Both follow the shape of the engine, so the two APIs line up closely and most
+Python examples translate directly. Where Python renamed an engine method, Ruby
+keeps the engine's name: Python's `clear_cell_contents(sheet, row, column)` is
+`range_clear_contents(range)` here, and `Model.get_cell_style` is
+`get_style_for_cell`. They do not cover the same amount of it —
 see [Coverage compared to the Python bindings](#coverage-compared-to-the-python-bindings).
 
 ### What's identical
@@ -163,10 +174,10 @@ see [Coverage compared to the Python bindings](#coverage-compared-to-the-python-
   `load_from_icalc`, `load_from_bytes`, `create_user_model`,
   `create_user_model_from_xlsx`, `create_user_model_from_icalc`,
   `create_user_model_from_bytes`.
-- **Method names and signatures** for everything both expose — `set_user_input`,
-  `get_formatted_cell_value`, `evaluate`, `insert_rows`, `set_column_width`,
-  `new_sheet`, `save_to_xlsx`, `to_bytes`, … (Python's `snake_case` is also
-  Ruby's convention, so they match exactly).
+- **Method names and signatures** for everything both take from the engine
+  unchanged — `set_user_input`, `get_formatted_cell_value`, `evaluate`,
+  `insert_rows`, `set_column_width`, `new_sheet`, `save_to_xlsx`, `to_bytes`, …
+  (Python's `snake_case` is also Ruby's convention).
 - **Coordinates**: `sheet` is a 0-based index; `row` and `column` are 1-based.
 - **Semantics**: the same engine, so the same inputs produce the same results.
 
@@ -197,7 +208,7 @@ ports:
 |---|---|---|
 | Module access | `ic.create(...)` | `IronCalc.create(...)` |
 | Error type | `WorkbookError` | `IronCalc::Error` |
-| Cell style | typed `Style` / `Font` / … objects | plain `Hash` (`get_cell_style` / `set_cell_style`) |
+| Cell style | typed `Style` / `Font` / … objects | `Hash` with Symbol keys (`get_style_for_cell` / `set_cell_style`) |
 | Cell type | `CellType` enum | `Symbol` (`:number`, `:text`, …) |
 | Worksheet properties | list of `SheetProperty` objects | array of `Hash`es (`:name`, `:state`, `:sheet_id`, `:color`) |
 | Sheet dimensions | tuple `(min_row, max_row, min_col, max_col)` | 4-element `Array` |
@@ -207,7 +218,7 @@ ports:
 | Version | `ironcalc.__version__` | `IronCalc::VERSION` |
 
 Rather than reconstruct Python's per-field style classes, Ruby exchanges styles
-as plain hashes (serialized as JSON across the boundary). A method that shares a
+as plain Hashes keyed by the engine's field names. A method that shares a
 name with an engine method takes the engine's parameters in the engine's order,
 with `nil` for an `Option`; conveniences get names of their own. So a range is
 one argument, `update_range_style({sheet: 0, row: 2, column: 2, width: 2,
@@ -222,8 +233,8 @@ the version this gem tracks, and accurate at the time of writing:
 
 | | Python | Ruby |
 |---|---|---|
-| `Model` | 69 | 67 |
-| `UserModel` | 103 | 54 |
+| `Model` | 69 | 62 |
+| `UserModel` | 102 | 53 |
 
 Most of the difference is deliberate. Selection, scrolling, clipboard and
 keyboard state belong to a UI rather than to a library, and are not exposed

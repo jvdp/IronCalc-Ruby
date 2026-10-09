@@ -2,14 +2,15 @@ use std::cell::RefCell;
 use std::io::Cursor;
 
 use magnus::value::StaticSymbol;
-use magnus::{RArray, RHash, RString, Ruby, Value};
+use magnus::{RArray, RString, Ruby, Value};
 
+use xlsx::base::expressions::types::Area;
 use xlsx::base::UserModel as CoreUserModel;
 use xlsx::export::{save_to_icalc, save_to_xlsx, save_xlsx_to_writer};
 
 use crate::error::workbook_error;
 use crate::model::{
-    area_from_ruby, cell_area, cell_type_to_str, color_to_ruby, defined_names_to_ruby, parse_color,
+    cell_type_to_str, color_to_ruby, defined_names_to_ruby, from_ruby, parse_color, to_ruby,
 };
 
 /// Shaped after the engine's WebAssembly binding rather than the Python one.
@@ -100,15 +101,11 @@ impl UserModel {
             .map_err(workbook_error)
     }
 
-    pub fn clear_cell_contents(
-        &self,
-        sheet: u32,
-        row: i32,
-        column: i32,
-    ) -> Result<(), magnus::Error> {
+    pub fn range_clear_contents(&self, range: Value) -> Result<(), magnus::Error> {
+        let range: Area = from_ruby(range)?;
         self.model
             .borrow_mut()
-            .range_clear_contents(&cell_area(sheet, row, column))
+            .range_clear_contents(&range)
             .map_err(workbook_error)
     }
 
@@ -157,30 +154,28 @@ impl UserModel {
     //
     // Per-property only; there is no whole-Style setter to mirror `Model`'s.
 
-    pub fn get_cell_style_json(
+    pub fn get_cell_style(
         &self,
         sheet: u32,
         row: i32,
         column: i32,
-    ) -> Result<String, magnus::Error> {
+    ) -> Result<Value, magnus::Error> {
         let style = self
             .model
             .borrow()
             .get_cell_style(sheet, row, column)
             .map_err(workbook_error)?;
-        serde_json::to_string(&style).map_err(workbook_error)
+        to_ruby(&style)
     }
 
     pub fn update_range_style(
-        ruby: &Ruby,
-        rb_self: &Self,
-        range: RHash,
+        &self,
+        range: Value,
         style_path: String,
         value: String,
     ) -> Result<(), magnus::Error> {
-        let range = area_from_ruby(ruby, range)?;
-        rb_self
-            .model
+        let range: Area = from_ruby(range)?;
+        self.model
             .borrow_mut()
             .update_range_style(&range, &style_path, &value)
             .map_err(workbook_error)
@@ -240,22 +235,29 @@ impl UserModel {
             .map_err(workbook_error)
     }
 
-    pub fn set_column_width(
+    pub fn set_columns_width(
         &self,
         sheet: u32,
-        column: i32,
+        column_start: i32,
+        column_end: i32,
         width: f64,
     ) -> Result<(), magnus::Error> {
         self.model
             .borrow_mut()
-            .set_columns_width(sheet, column, column, width)
+            .set_columns_width(sheet, column_start, column_end, width)
             .map_err(workbook_error)
     }
 
-    pub fn set_row_height(&self, sheet: u32, row: i32, height: f64) -> Result<(), magnus::Error> {
+    pub fn set_rows_height(
+        &self,
+        sheet: u32,
+        row_start: i32,
+        row_end: i32,
+        height: f64,
+    ) -> Result<(), magnus::Error> {
         self.model
             .borrow_mut()
-            .set_rows_height(sheet, row, row, height)
+            .set_rows_height(sheet, row_start, row_end, height)
             .map_err(workbook_error)
     }
 
@@ -276,22 +278,29 @@ impl UserModel {
             .map_err(workbook_error)
     }
 
-    pub fn set_column_hidden(
+    pub fn set_columns_hidden(
         &self,
         sheet: u32,
-        column: i32,
+        column_start: i32,
+        column_end: i32,
         hidden: bool,
     ) -> Result<(), magnus::Error> {
         self.model
             .borrow_mut()
-            .set_columns_hidden(sheet, column, column, hidden)
+            .set_columns_hidden(sheet, column_start, column_end, hidden)
             .map_err(workbook_error)
     }
 
-    pub fn set_row_hidden(&self, sheet: u32, row: i32, hidden: bool) -> Result<(), magnus::Error> {
+    pub fn set_rows_hidden(
+        &self,
+        sheet: u32,
+        row_start: i32,
+        row_end: i32,
+        hidden: bool,
+    ) -> Result<(), magnus::Error> {
         self.model
             .borrow_mut()
-            .set_rows_hidden(sheet, row, row, hidden)
+            .set_rows_hidden(sheet, row_start, row_end, hidden)
             .map_err(workbook_error)
     }
 
@@ -429,22 +438,19 @@ impl UserModel {
             .map_err(workbook_error)
     }
 
-    pub fn clear_cell_all(&self, sheet: u32, row: i32, column: i32) -> Result<(), magnus::Error> {
+    pub fn range_clear_all(&self, range: Value) -> Result<(), magnus::Error> {
+        let range: Area = from_ruby(range)?;
         self.model
             .borrow_mut()
-            .range_clear_all(&cell_area(sheet, row, column))
+            .range_clear_all(&range)
             .map_err(workbook_error)
     }
 
-    pub fn clear_cell_formatting(
-        &self,
-        sheet: u32,
-        row: i32,
-        column: i32,
-    ) -> Result<(), magnus::Error> {
+    pub fn range_clear_formatting(&self, range: Value) -> Result<(), magnus::Error> {
+        let range: Area = from_ruby(range)?;
         self.model
             .borrow_mut()
-            .range_clear_formatting(&cell_area(sheet, row, column))
+            .range_clear_formatting(&range)
             .map_err(workbook_error)
     }
 

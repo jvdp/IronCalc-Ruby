@@ -69,7 +69,7 @@ class CalcTestsTest < Minitest::Test
 
           diffs << format("  %s!%s%d  cached=%p  recomputed=%p  (=%s)",
             props[:name], col_letter(col), row, want, got,
-            recomputed.get_cell_content(sheet, row, col))
+            recomputed.get_localized_cell_content(sheet, row, col))
           return assert(false, fail_message(path, diffs)) if diffs.size >= 20
         end
       end
@@ -95,9 +95,9 @@ class CalcTestsTest < Minitest::Test
     model.get_worksheets_properties.each_with_index do |props, sheet|
       next unless props[:name].to_s.casecmp?(META_SHEET)
 
-      a1 = model.get_cell_content(sheet, 1, 1).to_s
+      a1 = model.get_localized_cell_content(sheet, 1, 1).to_s
       if a1 == "Locale"
-        b1 = model.get_cell_content(sheet, 1, 2).to_s
+        b1 = model.get_localized_cell_content(sheet, 1, 2).to_s
         return [b1.empty? ? "en" : b1, EPS]
       end
 

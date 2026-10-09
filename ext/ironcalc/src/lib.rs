@@ -251,21 +251,21 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     ]);
     // Set / clear values
     define_methods!(model_class, Model, [
-        set_user_input/4, clear_cell_contents/3, clear_cell_all/3,
+        set_user_input/4, range_clear_contents/1, range_clear_all/1,
         update_cell_with_text/4, update_cell_with_number/4,
         update_cell_with_bool/4, update_cell_with_formula/4,
     ]);
     // Get values
     define_methods!(model_class, Model, [
-        get_cell_content/3, get_cell_type/3, get_formatted_cell_value/3,
+        get_localized_cell_content/3, get_cell_type/3, get_formatted_cell_value/3,
         get_cell_value_by_index/3, get_cell_value_by_ref/1, get_cell_formula/3,
         is_empty_cell/3, get_all_cells/0,
     ]);
-    // Styles (JSON across the boundary; the Ruby layer exposes Hashes)
+    // Styles
     define_methods!(model_class, Model, [
-        set_cell_style_json/4, get_cell_style_json/3, copy_cell_style/2,
-        get_column_style_json/2, set_column_style_json/3, delete_column_style/2,
-        get_row_style_json/2, set_row_style_json/3, delete_row_style/2,
+        set_cell_style/4, get_style_for_cell/3, copy_cell_style/2,
+        get_column_style/2, set_column_style/3, delete_column_style/2,
+        get_row_style/2, set_row_style/3, delete_row_style/2,
     ]);
     // Rows / columns
     define_methods!(model_class, Model, [
@@ -275,14 +275,14 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     ]);
     // Frozen rows / columns
     define_methods!(model_class, Model, [
-        get_frozen_columns_count/1, set_frozen_columns_count/2,
-        get_frozen_rows_count/1, set_frozen_rows_count/2,
+        get_frozen_columns_count/1, set_frozen_columns/2,
+        get_frozen_rows_count/1, set_frozen_rows/2,
     ]);
     // Sheets
     define_methods!(model_class, Model, [
         get_worksheets_properties/0, get_sheet_dimensions/1, set_sheet_color/2,
         add_sheet/1, new_sheet/0, insert_sheet/3, set_sheet_state/2,
-        delete_sheet/1, rename_sheet/2,
+        delete_sheet/1, rename_sheet/2, rename_sheet_by_index/2,
     ]);
     // Defined names
     define_methods!(model_class, Model, [
@@ -303,19 +303,19 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     ]);
     // Set / clear / get values
     define_methods!(user_model_class, UserModel, [
-        set_user_input/4, clear_cell_contents/3, clear_cell_all/3,
-        clear_cell_formatting/3,
+        set_user_input/4, range_clear_contents/1, range_clear_all/1,
+        range_clear_formatting/1,
         get_cell_content/3, get_cell_type/3, get_formatted_cell_value/3,
     ]);
     // Styles (per-property; the engine user model has no whole-Style setter)
     define_methods!(user_model_class, UserModel, [
-        get_cell_style_json/3, update_range_style/3,
+        get_cell_style/3, update_range_style/3,
     ]);
     // Rows / columns
     define_methods!(user_model_class, UserModel, [
         insert_rows/3, insert_columns/3, delete_rows/3, delete_columns/3,
-        get_column_width/2, set_column_width/3, get_row_height/2, set_row_height/3,
-        is_column_hidden/2, set_column_hidden/3, is_row_hidden/2, set_row_hidden/3,
+        get_column_width/2, set_columns_width/4, get_row_height/2, set_rows_height/4,
+        is_column_hidden/2, set_columns_hidden/4, is_row_hidden/2, set_rows_hidden/4,
     ]);
     // Frozen rows / columns
     define_methods!(user_model_class, UserModel, [

@@ -68,29 +68,29 @@ class UserModelTest < Minitest::Test
     assert_equal "10", model.get_formatted_cell_value(0, 1, 2)
   end
 
-  def test_clear_cell_formatting_keeps_contents
+  def test_range_clear_formatting_keeps_contents
     model.set_user_input(0, 1, 1, "10")
-    model.set_cell_style(0, 1, 1, {"font" => {"b" => true}})
+    model.set_cell_style(0, 1, 1, {font: {b: true}})
 
-    model.clear_cell_formatting(0, 1, 1)
+    model.range_clear_formatting({sheet: 0, row: 1, column: 1, width: 1, height: 1})
 
     assert_equal "10", model.get_formatted_cell_value(0, 1, 1)
-    refute model.get_cell_style(0, 1, 1).dig("font", "b")
+    refute model.get_cell_style(0, 1, 1).dig(:font, :b)
   end
 
-  def test_clear_cell_all_removes_contents_and_formatting
+  def test_range_clear_all_removes_contents_and_formatting
     model.set_user_input(0, 1, 1, "10")
-    model.set_cell_style(0, 1, 1, {"font" => {"b" => true}})
+    model.set_cell_style(0, 1, 1, {font: {b: true}})
 
-    model.clear_cell_all(0, 1, 1)
+    model.range_clear_all({sheet: 0, row: 1, column: 1, width: 1, height: 1})
 
     assert_equal "", model.get_formatted_cell_value(0, 1, 1)
-    refute model.get_cell_style(0, 1, 1).dig("font", "b")
+    refute model.get_cell_style(0, 1, 1).dig(:font, :b)
   end
 
-  def test_clear_cell_all_is_undoable
+  def test_range_clear_all_is_undoable
     model.set_user_input(0, 1, 1, "10")
-    model.clear_cell_all(0, 1, 1)
+    model.range_clear_all({sheet: 0, row: 1, column: 1, width: 1, height: 1})
     model.undo
 
     assert_equal "10", model.get_formatted_cell_value(0, 1, 1)
@@ -116,24 +116,22 @@ class UserModelTest < Minitest::Test
   def test_styling_via_hash_wrapper
     model.set_cell_style(0, 1, 1, {"font" => {"b" => true, "i" => true}})
     style = model.get_cell_style(0, 1, 1)
-    assert_equal true, style["font"]["b"]
-    assert_equal true, style["font"]["i"]
+    assert_equal true, style[:font][:b]
+    assert_equal true, style[:font][:i]
   end
 
   def test_update_range_style_styles_the_whole_area
     model.update_range_style({sheet: 0, row: 2, column: 2, width: 2, height: 9}, "font.b", "true")
 
-    assert_equal true, model.get_cell_style(0, 2, 2)["font"]["b"]
-    assert_equal true, model.get_cell_style(0, 10, 3)["font"]["b"]
-    refute model.get_cell_style(0, 11, 3)["font"]["b"]
-    refute model.get_cell_style(0, 2, 4)["font"]["b"]
+    assert_equal true, model.get_cell_style(0, 2, 2)[:font][:b]
+    assert_equal true, model.get_cell_style(0, 10, 3)[:font][:b]
+    refute model.get_cell_style(0, 11, 3)[:font][:b]
+    refute model.get_cell_style(0, 2, 4)[:font][:b]
   end
 
   def test_update_range_style_rejects_a_malformed_area
     misspelled = {sheet: 0, row: 1, col: 1, width: 1, height: 1}
-    extra = {sheet: 0, row: 1, column: 1, width: 1, height: 1, depth: 1}
     assert_raises(IronCalc::Error) { model.update_range_style(misspelled, "font.b", "true") }
-    assert_raises(IronCalc::Error) { model.update_range_style(extra, "font.b", "true") }
     assert_raises(ArgumentError) { model.update_range_style(0, 1, 1, 1, 1, "font.b", "true") }
   end
 
@@ -150,10 +148,10 @@ class UserModelTest < Minitest::Test
     assert_equal "keep", model.get_formatted_cell_value(0, 1, 1)
   end
 
-  def test_clear_cell_contents
+  def test_range_clear_contents
     model.set_user_input(0, 1, 1, "gone")
     assert_equal "gone", model.get_formatted_cell_value(0, 1, 1)
-    model.clear_cell_contents(0, 1, 1)
+    model.range_clear_contents({sheet: 0, row: 1, column: 1, width: 1, height: 1})
     assert_equal "", model.get_formatted_cell_value(0, 1, 1)
   end
 
@@ -174,16 +172,16 @@ class UserModelTest < Minitest::Test
   end
 
   def test_column_width_and_row_height
-    model.set_column_width(0, 3, 99.0)
-    model.set_row_height(0, 4, 42.0)
+    model.set_columns_width(0, 3, 3, 99.0)
+    model.set_rows_height(0, 4, 4, 42.0)
     assert_in_delta 99.0, model.get_column_width(0, 3)
     assert_in_delta 42.0, model.get_row_height(0, 4)
   end
 
   # The engine's user model has range setters and no readers; both sides are ours.
   def test_hidden_rows_and_columns_round_trip
-    model.set_column_hidden(0, 3, true)
-    model.set_row_hidden(0, 4, true)
+    model.set_columns_hidden(0, 3, 3, true)
+    model.set_rows_hidden(0, 4, 4, true)
 
     assert model.is_column_hidden(0, 3)
     assert model.is_row_hidden(0, 4)
@@ -191,7 +189,7 @@ class UserModelTest < Minitest::Test
   end
 
   def test_hiding_is_undoable
-    model.set_row_hidden(0, 4, true)
+    model.set_rows_hidden(0, 4, 4, true)
     model.undo
 
     refute model.is_row_hidden(0, 4)

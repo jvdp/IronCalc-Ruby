@@ -20,9 +20,9 @@ What survives in `ext/`: section banners, and notes that stop a plausible "fix" 
 
 **3. Follow the Rust codebase; conveniences get their own names.** Structure, naming and terminology track `ironcalc_base` so the two read alike and engine knowledge transfers. For 0.x the API tracks the engine closely, without Ruby-only niceties. The rule:
 
-- **A method sharing a name with an engine method takes the engine's signature**: same parameters, same order, all positional. `rake parity` enforces this.
-- **Types map mechanically**: `Option<T>` → a required argument that accepts `nil` (no keyword arguments, no defaults); a struct (`Area`, `CellIndex`, `SheetProperties`, …) → a Hash keyed by its field names as Symbols, never spread into separate arguments; a tuple → an Array; `Result<T, String>` → returns `T`, raises `IronCalc::Error` with the message; enums → Strings/Symbols as below; `Style` → a string-keyed Hash via JSON.
-- **Where the engine signature causes real friction, add a helper under a different name** in the Ruby layer, on top of the engine-named method (`valid_defined_name?` over `is_valid_defined_name`). Don't reshape the engine-named one.
+- **Native methods mirror the engine**: every method implemented in Rust has the name of an engine method and takes its signature (same parameters, same order, all positional). No renames, not even to Python's spelling. `rake parity` enforces this; the few natives with no engine counterpart are listed in `NATIVE_EXTRAS`.
+- **Types map mechanically**: `Option<T>` → a required argument that accepts `nil` (no keyword arguments, no defaults); a struct (`Style`, `Area`, `CellIndex`, `SheetProperties`, …) → a Hash keyed by its field names as Symbols, never spread into separate arguments (structs that derive serde cross via `serde_magnus`, through `to_ruby` / `from_ruby` in `model.rs`, which accept Symbol or String keys on the way in); a tuple → an Array; `Result<T, String>` → returns `T`, raises `IronCalc::Error` with the message; enums → Strings/Symbols as below.
+- **Where the engine signature causes real friction, add a helper under a different name** in the Ruby layer (`lib/ironcalc/model.rb`), on top of the engine-named method (`valid_defined_name?` over `is_valid_defined_name`). Don't reshape the engine-named one. Methods implemented in Ruby are helpers by definition, so they need no bookkeeping.
 
 **Where fidelity and ergonomics genuinely clash, that is the maintainer's call, not the agent's** — surface the choice rather than deciding it. Existing resolutions are recorded under "Idiomatic-Ruby divergences" below.
 
@@ -68,13 +68,11 @@ bundle exec ruby -Itest test/surface_test.rb -n test_NAME
 
 The principle the task encodes: **follow the shape of the engine** — expose what it offers, don't invent names, and record every omission rather than let one happen by accident. Every constant in `tasks/parity.rake` is one of those records, so adding a name to a list is a decision, not a way to quiet the report. `rake parity` introspects the Ruby classes at runtime and diffs them three ways. Each other surface also comes from a tool that already knows it, not from parsing source: it needs `cargo` and [`uv`](https://docs.astral.sh/uv/) on the path.
 
-1. **The engine (authoritative)**, from rustdoc's JSON output for the `ironcalc_base` we build against (`cargo rustdoc … --output-format json`, written under `tmp/parity/`). That output is a nightly rustdoc feature; the task sets `RUSTC_BOOTSTRAP=1` so a stable toolchain produces it, and its format version can change between Rust releases. For both `Model` and `UserModel` it reports engine methods we don't expose, split into `ENGINE_DEFERRED` (known, listed explicitly so they stay visible — this doubles as **the backlog**) and unreviewed (a hard gap). It also flags **invented names**: anything we expose that has no engine counterpart, which catches typos and stale renames. And it checks **signatures**: a Ruby method sharing an engine method's name (on its own engine class, else the other one) must take the same number of parameters, all positional and required. Deliberate name changes go in `MODEL_RENAMES` / `USERMODEL_RENAMES`; things we assemble ourselves go in `RUBY_COMPOSED`; engine functionality that isn't a method of the class (the export crate, reads borrowed through `get_model`) goes in `ENGINE_ELSEWHERE`.
+1. **The engine (authoritative)**, from rustdoc's JSON output for the `ironcalc_base` we build against (`cargo rustdoc … --output-format json`, written under `tmp/parity/`). That output is a nightly rustdoc feature; the task sets `RUSTC_BOOTSTRAP=1` so a stable toolchain produces it, and its format version can change between Rust releases. For both `Model` and `UserModel` it reports engine methods we don't expose, split into `ENGINE_DEFERRED` (known, listed explicitly so they stay visible — this doubles as **the backlog**) and unreviewed (a hard gap). It checks that **native methods mirror the engine**: each has an engine method's name (on its own class, else the other one) and takes the same number of parameters, all positional and required; methods implemented in Ruby are recognised as helpers by their source location. `ENGINE_DEFERRED` **may only shrink**: a name missing from `main`'s copy of the list is a hard gap, so a new engine method gets exposed or omitted, not deferred. Every list entry must still match something, so stale omissions show up too.
 
    What remains deliberately unexposed (in `ENGINE_OMIT_SHARED` / `ENGINE_OMIT` / `ENGINE_OMIT_PATTERNS`): selection / scroll / window / clipboard / keyboard UI state, drag-fill and `paste_*`, locale / timezone / language (set at construction), grid lines, `hide_sheet`, style-index internals, and the **named-style family** (`set_sheet_style`, `set_sheet_row_style`, `set_sheet_column_style`, `set_cell_style_by_name`) — those resolve a style by name from the workbook's named-styles table, so they stay unusable from Ruby until the named-styles cluster is exposed.
 2. **Documentation**, from YARD's registry over `lib/`: every method must be documented (a `@!method` stub for native ones, inline YARD for Ruby-layer ones) with an arity that matches, and no documentation may outlive its method. This is the one check that catches doc drift. It also flags, advisorily, methods with no prose where Python has a docstring to borrow.
-3. **The Python bindings**, by introspecting the published `ironcalc` wheel in a throwaway uv environment. PyPI versions it in step with the engine, so the wheel for the version we build against pins the comparison with no IronCalc checkout to keep in sync. Without uv or network, the check is skipped and the others still run. Exceeding Python is expected and not reported.
-
-   Read `✓ nothing unaccounted` precisely: it subtracts `ENGINE_DEFERRED` before comparing, so it means *every difference is recorded*, **not** that we match Python.
+3. **The Python bindings** (informational, never a gap), by introspecting the published `ironcalc` wheel in a throwaway uv environment. PyPI versions it in step with the engine, so the wheel for the version we build against pins the comparison. Anything Python takes from the engine is covered by the engine check; `VERBOSE=1` lists Python's own names (its renames and helpers). It also points out methods we document only with tags where Python has a docstring to borrow.
 
 Report-only by default; `STRICT=1 rake parity` exits non-zero on hard gaps. Run it after bumping the `ironcalc` dependency and whenever adding methods.
 
@@ -84,7 +82,7 @@ Report-only by default; `STRICT=1 rake parity` exits non-zero on hard gaps. Run 
 
 `rake doc` generates HTML into `doc/` via YARD (config in `.yardopts`). Because the public API is defined in Rust, YARD can't see it — so native methods are documented with `@!method` **stubs** in `lib/ironcalc/native_methods.rb`, a doc-only file never required at runtime. Ruby-layer wrappers in `lib/ironcalc/model.rb` are documented inline as normal. **When you add or rename a native method, update its stub** — `rake parity` catches surface drift but not doc drift.
 
-`--hide-api private` (not just `--no-private`) is what actually hides `@api private` objects such as the `*_json` style accessors.
+`--hide-api private` (not just `--no-private`) is what actually hides `@api private` objects.
 
 Published by `.github/workflows/docs.yml` to **GitHub Pages**. Validation (`yard doc --no-output`) runs on every push and PR; the build+deploy only runs on `v*` tag pushes or manual dispatch. Docs are grouped by **engine version** (first three version segments, so `0.8.3.0` → `/0.8.3/`), newest mirrored at the root, with a `versions.html` index. `documentation_uri` in the gemspec is computed from the same three segments.
 
@@ -92,11 +90,11 @@ Published by `.github/workflows/docs.yml` to **GitHub Pages**. Validation (`yard
 
 - **`ext/ironcalc/src/`** — the magnus extension:
   - `lib.rs` — `#[magnus::init]`, top-level module functions, class/method registration.
-  - `model.rs` — `IronCalc::Model`, the raw API, plus shared conversions (`area_from_ruby`, `cell_area`, colors, defined names).
+  - `model.rs` — `IronCalc::Model`, the raw API, plus shared conversions (`to_ruby` / `from_ruby` for serde structs, colors, defined names).
   - `user_model.rs` — `IronCalc::UserModel`, the user API.
   - `error.rs` — `IronCalc::Error` exception (`Lazy<ExceptionClass>`), via `workbook_error`.
 - **`lib/ironcalc.rb`** — version-aware require of the native extension (built gems put it under a Ruby-version subdir; a local compile sits directly in `lib/ironcalc/`), then `model.rb`.
-- **`lib/ironcalc/model.rb`** — the Ruby convenience layer: Hash↔JSON style conversion, `UserModel#set_cell_style`, and helpers under their own names (`defined_names`, `valid_defined_name?`, `batch`).
+- **`lib/ironcalc/model.rb`** — the Ruby helpers: `UserModel#set_cell_style`, `defined_names`, `valid_defined_name?`, `batch`.
 - **`tasks/`** — `parity.rake`, `yard.rake`, `changelog.rake`, `release.rake`.
 
 **Coordinates everywhere:** `sheet` is a 0-based `u32`; `row`/`column` are 1-based.
@@ -112,19 +110,19 @@ The engine exposes two surfaces and the split matters:
 - **`IronCalc::UserModel`** — **auto-evaluates after every action** and records diffs for collaboration (`flush_send_queue` / `apply_external_diffs`) and for undo. This is the recommended path and mirrors the **WASM binding**, which is the engine's canonical, best-maintained user-facing surface. Because every mutation is a tracked diff, `undo` / `redo` / `can_undo` / `can_redo` work across everything, including defined names.
 - **`IronCalc::Model`** — the **raw** API: you must call `evaluate` yourself, and misuse can leave the workbook in an inconsistent state. It is what `IronCalc.create` / `load_from_xlsx` / `load_from_bytes` return, so plenty of consumer code uses it, and it is *not* frozen at Python parity — add to it when the engine has something useful.
 
-Styling differs between the two: `Model` round-trips a whole-`Style` JSON Hash (`set_cell_style_json` / `get_cell_style_json` under `get_cell_style` / `set_cell_style`); the engine's `UserModel` has **no whole-Style setter**, so `UserModel#set_cell_style` flattens the Hash to dotted paths and applies each leaf via `update_range_style`.
+Styling differs between the two: `Model` reads and writes a whole style (`get_style_for_cell` / `set_cell_style`); the engine's `UserModel` reads one with `get_cell_style` but has **no whole-Style setter**, so the `UserModel#set_cell_style` helper flattens the Hash to dotted paths and applies each leaf via `update_range_style`.
 
 When adding a method, prefer adding it to **both** classes unless the engine only has it on one.
 
 ### Idiomatic-Ruby divergences (keep these consistent)
 
 - Errors → `IronCalc::Error` (Python: `WorkbookError`).
-- Styles → plain Ruby `Hash` (snake_case keys, serde field names), serialized as JSON across the boundary. Python uses typed `Style`/`Font`/`Border` objects.
+- Styles → plain Ruby `Hash` with Symbol keys (serde field names). Python uses typed `Style`/`Font`/`Border` objects.
 - `get_cell_type` → Ruby **Symbol** (`:number`, `:text`, `:logical_value`, `:error_value`, `:array`, `:compound_data`).
 - `get_worksheets_properties` → array of Hashes with **symbol** keys (`:name`, `:state`, `:sheet_id`, `:color`). Same convention for `get_defined_name_list` (`:name`, `:scope`, `:formula`).
 - `get_sheet_dimensions` → 4-element Array `[min_row, max_row, min_col, max_col]`.
 - Binary blobs (`to_bytes`, `to_xlsx_bytes`, `flush_send_queue`; `load_from_bytes`, `load_from_xlsx_bytes`, `apply_external_diffs`) are binary Ruby `String`s. `to_bytes` / `load_from_bytes` are IronCalc's internal icalc format, not xlsx.
-- Optional engine args (`Option<u32>` scope, `insert_sheet`'s sheet id) are **positional and required**; pass `nil`. Engine structs are Hashes keyed by field name: `update_range_style` takes an `Area` as `{sheet:, row:, column:, width:, height:}` (read by `area_from_ruby`, which rejects missing or extra keys), `get_all_cells` returns `CellIndex` as `{index:, row:, column:}`. Tuples are Arrays: `copy_cell_style([sheet, row, column], [sheet, row, column])`.
+- Optional engine args (`Option<u32>` scope, `insert_sheet`'s sheet id) are **positional and required**; pass `nil`. Engine structs are Hashes keyed by field name: `update_range_style` and the `range_clear_*` methods take an `Area` as `{sheet:, row:, column:, width:, height:}` (a missing key raises; extra keys are ignored, as serde does), `get_all_cells` returns `CellIndex` as `{index:, row:, column:}`. Tuples are Arrays: `copy_cell_style([sheet, row, column], [sheet, row, column])`.
 - Ruby-layer helpers live in **prepended** modules (`IronCalc::DefinedNames`, `IronCalc::Batch`) so they count as class surface. Prepended methods don't show up in `instance_methods(false)`, so `rake parity` walks the ancestors to collect them.
 - One deliberate behavioural divergence: `Model#insert_sheet` rejects a `sheet_id` already in use, which the engine doesn't check (a duplicate makes sheet-scoped defined names resolve to the wrong sheet).
 - Engine args typed as a Rust enum become a **String** matching the engine's own spelling, so they round-trip with the reader: `set_sheet_state(sheet, "veryHidden")` pairs with the `:state` value from `get_worksheets_properties`. (snake_case is accepted too.)
@@ -138,11 +136,10 @@ Exposed on both classes: `get_defined_name_list` (also `defined_names`), `new_de
 
 **Re-check on every `ironcalc` dependency bump**: read the engine source in the Cargo registry (`~/.cargo/registry/src/*/ironcalc_base-<ver>/src/`), and let `rake compile`, `rake parity` and `rake test` enumerate the rest. Things that have moved before and are worth checking first:
 
-- Range-based methods (`range_clear_contents(&Area)` and friends) vs per-cell ones; `cell_area` in `model.rs` builds the 1×1 area both classes use for the per-cell Ruby methods.
 - `Color` (`Rgb(String)` / `Theme(i32, f64)` / `None`, `#[serde(untagged)]`, so RGB serializes as a hex String and a theme color as a `[theme, tint]` pair), used by `SheetProperties.color` and `set_sheet_color`.
 - The `Style` struct, which is the public style Hash: renamed fields (0.8.3 replaced `Fill`'s `fg_color` / `bg_color` with `color`) and defaults (0.8.3 moved the default font from Calibri 13 to Inter 12) are breaking changes for users.
 - The layout of the crate's `tests/calc_tests` fixtures: they sit in per-category subdirectories, so `fixtures_helper.rb` globs `**`. A fixture count that drops without failures or skips means the glob missed them.
-- `UserModel` spells some operations as ranges (`set_columns_width` / `set_rows_height`) where `Model` has per-item ones (`set_column_width` / `set_row_height`); the Ruby names are singular on both.
+- Renamed or re-signatured engine methods: `rake parity` reports them as unexposed engine methods plus natives with no engine name. Follow the engine (it is a breaking change for users, so note it in the CHANGELOG).
 
 ## Workflow
 
