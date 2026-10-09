@@ -43,6 +43,25 @@ Coordinates: `sheet` is a 0-based index; `row` and `column` are 1-based. Method
 names and signatures are the engine's own. Engine structs, such as styles and
 cell ranges, are plain Ruby Hashes keyed by their field names.
 
+### API overview
+
+The [API reference](https://jvdp.github.io/IronCalc-Ruby/) documents every method; it shows the latest
+release, and [older versions](https://jvdp.github.io/IronCalc-Ruby/versions.html) are kept too.
+
+- [`IronCalc`](https://jvdp.github.io/IronCalc-Ruby/IronCalc.html) — module functions: the constructors (see
+  [Loading and saving](#loading-and-saving)) and utilities for cell references,
+  such as [`number_to_column`](https://jvdp.github.io/IronCalc-Ruby/IronCalc.html#number_to_column-class_method)
+  and [`parse_reference_a1`](https://jvdp.github.io/IronCalc-Ruby/IronCalc.html#parse_reference_a1-class_method).
+- [`IronCalc::UserModel`](https://jvdp.github.io/IronCalc-Ruby/IronCalc/UserModel.html) — the recommended API.
+  It recalculates after every change, supports `undo` / `redo`, and records
+  diffs for collaboration
+  ([`flush_send_queue`](https://jvdp.github.io/IronCalc-Ruby/IronCalc/UserModel.html#flush_send_queue-instance_method)).
+  Styles are set per property with
+  [`update_range_style`](https://jvdp.github.io/IronCalc-Ruby/IronCalc/UserModel.html#update_range_style-instance_method).
+- [`IronCalc::Model`](https://jvdp.github.io/IronCalc-Ruby/IronCalc/Model.html) — the raw API. You call
+  `evaluate` yourself; in return it offers typed cell access, whole-style
+  reads and writes, and row and column default styles.
+
 ### Typed cell access
 
 `set_user_input` parses what you give it, the way typing into a cell does — so
@@ -135,19 +154,35 @@ model.delete_defined_name("result", nil)
 `new_defined_name` would succeed; the name must be an identifier (`"A1"` is
 rejected — it parses as a cell reference), unused in that scope, and the formula
 must parse. `is_valid_defined_name` runs the same check but raises
-`IronCalc::Error` with the reason. On `UserModel` all four mutations are
+`IronCalc::Error` with the reason. On `UserModel` all three mutations are
 undoable.
 
-### Top-level methods
+### Loading and saving
 
-`create`, `load_from_xlsx`, `load_from_icalc`, `load_from_bytes`,
-`create_user_model`, `create_user_model_from_xlsx`,
-`create_user_model_from_icalc`, `create_user_model_from_bytes`.
+| | `Model` | `UserModel` | save with |
+|---|---|---|---|
+| new workbook | `create` | `create_user_model` | |
+| xlsx file | `load_from_xlsx` | `create_user_model_from_xlsx` | `save_to_xlsx` |
+| xlsx in memory | `load_from_xlsx_bytes` | `create_user_model_from_xlsx_bytes` | `to_xlsx_bytes` |
+| icalc file | `load_from_icalc` | `create_user_model_from_icalc` | `save_to_icalc` |
+| icalc in memory | `load_from_bytes` | `create_user_model_from_bytes` | `to_bytes` |
 
-`to_bytes` and `load_from_bytes` use IronCalc's internal icalc format, not xlsx.
-For xlsx in memory, use `to_xlsx_bytes` with `load_from_xlsx_bytes(bytes, name,
-locale, tz, language_id)` or `create_user_model_from_xlsx_bytes` (same
-arguments).
+icalc is IronCalc's own compact format; use xlsx for anything another
+spreadsheet application should open. The constructors take
+`(name_or_path, locale, tz, language_id)`, except that the bytes variants take
+the bytes first, and the icalc ones need only the language.
+
+### Utilities
+
+```ruby
+IronCalc.number_to_column(28)          # => "AB"
+IronCalc.column_to_number("AB")        # => 28
+IronCalc.parse_reference_a1("$B3")     # => {row: 3, column: 2, absolute_row: false, absolute_column: true}
+IronCalc.quote_name("My Sheet")        # => "'My Sheet'"
+```
+
+Also `parse_reference_r1c1`, the `is_valid_*` checks, `get_supported_locales`
+and `get_all_timezones`; see the [`IronCalc` module](https://jvdp.github.io/IronCalc-Ruby/IronCalc.html).
 
 Errors raised by the engine surface as `IronCalc::Error`.
 
@@ -257,7 +292,7 @@ Correctness doesn't rest on review alone. The test suite, run in CI on every
 push, re-runs the engine's own formula regression fixtures through the binding.
 `rake parity` checks the API surface and method signatures against the engine
 and the Python bindings. The conventions agents follow here are in
-[AGENTS.md](AGENTS.md).
+[AGENTS.md](https://github.com/jvdp/IronCalc-Ruby/blob/main/AGENTS.md).
 
 ## License
 
