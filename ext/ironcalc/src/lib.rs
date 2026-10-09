@@ -3,6 +3,7 @@ use magnus::{function, method, prelude::*, Error, RHash, RString, Ruby};
 
 use xlsx::base::expressions::types::ParsedReference;
 use xlsx::base::expressions::utils;
+use xlsx::base::language::get_language;
 use xlsx::base::{get_all_timezones, get_supported_locales};
 use xlsx::base::types::Workbook;
 use xlsx::base::{Model as CoreModel, UserModel as CoreUserModel};
@@ -16,21 +17,30 @@ use error::{workbook_error, IRONCALC_ERROR};
 use model::Model;
 use user_model::UserModel;
 
-fn leak_str(s: &str) -> &'static str {
-    Box::leak(s.to_owned().into_boxed_str())
+fn language(language_id: &str) -> Result<&'static str, Error> {
+    get_language(language_id)
+        .map(|language| language.code.as_str())
+        .map_err(workbook_error)
+}
+
+fn new_empty(
+    name: &str,
+    locale: &str,
+    tz: &str,
+    language_id: &str,
+) -> Result<CoreModel<'static>, Error> {
+    let mut model =
+        CoreModel::new_empty("", "en", "UTC", language(language_id)?).map_err(workbook_error)?;
+    model.set_timezone(tz).map_err(workbook_error)?;
+    model.set_locale(locale).map_err(workbook_error)?;
+    model.workbook.name = name.to_string();
+    Ok(model)
 }
 
 // Top-level constructors --------------------------------------------------
 
 fn create(name: String, locale: String, tz: String, language_id: String) -> Result<Model, Error> {
-    let model = CoreModel::new_empty(
-        leak_str(&name),
-        leak_str(&locale),
-        leak_str(&tz),
-        leak_str(&language_id),
-    )
-    .map_err(workbook_error)?;
-    Ok(Model::new(model))
+    Ok(Model::new(new_empty(&name, &locale, &tz, &language_id)?))
 }
 
 fn load_from_xlsx(
@@ -39,7 +49,7 @@ fn load_from_xlsx(
     tz: String,
     language_id: String,
 ) -> Result<Model, Error> {
-    let model = import::load_from_xlsx(&file_path, &locale, &tz, leak_str(&language_id))
+    let model = import::load_from_xlsx(&file_path, &locale, &tz, language(&language_id)?)
         .map_err(workbook_error)?;
     Ok(Model::new(model))
 }
@@ -55,20 +65,20 @@ fn load_from_xlsx_bytes(
     let workbook =
         import::load_from_xlsx_bytes(&raw, &name, &locale, &tz).map_err(workbook_error)?;
     let model =
-        CoreModel::from_workbook(workbook, leak_str(&language_id)).map_err(workbook_error)?;
+        CoreModel::from_workbook(workbook, language(&language_id)?).map_err(workbook_error)?;
     Ok(Model::new(model))
 }
 
 fn load_from_icalc(file_name: String, language_id: String) -> Result<Model, Error> {
     let model =
-        import::load_from_icalc(&file_name, leak_str(&language_id)).map_err(workbook_error)?;
+        import::load_from_icalc(&file_name, language(&language_id)?).map_err(workbook_error)?;
     Ok(Model::new(model))
 }
 
 fn load_from_bytes(bytes: RString, language_id: String) -> Result<Model, Error> {
     let raw = unsafe { bytes.as_slice() }.to_vec();
     let workbook: Workbook = bitcode::decode(&raw).map_err(workbook_error)?;
-    let model = CoreModel::from_workbook(workbook, leak_str(&language_id)).map_err(workbook_error)?;
+    let model = CoreModel::from_workbook(workbook, language(&language_id)?).map_err(workbook_error)?;
     Ok(Model::new(model))
 }
 
@@ -78,14 +88,8 @@ fn create_user_model(
     tz: String,
     language_id: String,
 ) -> Result<UserModel, Error> {
-    let model = CoreUserModel::new_empty(
-        leak_str(&name),
-        leak_str(&locale),
-        leak_str(&tz),
-        leak_str(&language_id),
-    )
-    .map_err(workbook_error)?;
-    Ok(UserModel::new(model))
+    let model = new_empty(&name, &locale, &tz, &language_id)?;
+    Ok(UserModel::new(CoreUserModel::from_model(model)))
 }
 
 fn create_user_model_from_xlsx(
@@ -94,7 +98,7 @@ fn create_user_model_from_xlsx(
     tz: String,
     language_id: String,
 ) -> Result<UserModel, Error> {
-    let model = import::load_from_xlsx(&file_path, &locale, &tz, leak_str(&language_id))
+    let model = import::load_from_xlsx(&file_path, &locale, &tz, language(&language_id)?)
         .map_err(workbook_error)?;
     Ok(UserModel::new(CoreUserModel::from_model(model)))
 }
@@ -110,7 +114,7 @@ fn create_user_model_from_xlsx_bytes(
     let workbook =
         import::load_from_xlsx_bytes(&raw, &name, &locale, &tz).map_err(workbook_error)?;
     let model =
-        CoreModel::from_workbook(workbook, leak_str(&language_id)).map_err(workbook_error)?;
+        CoreModel::from_workbook(workbook, language(&language_id)?).map_err(workbook_error)?;
     Ok(UserModel::new(CoreUserModel::from_model(model)))
 }
 
@@ -119,14 +123,14 @@ fn create_user_model_from_icalc(
     language_id: String,
 ) -> Result<UserModel, Error> {
     let model =
-        import::load_from_icalc(&file_name, leak_str(&language_id)).map_err(workbook_error)?;
+        import::load_from_icalc(&file_name, language(&language_id)?).map_err(workbook_error)?;
     Ok(UserModel::new(CoreUserModel::from_model(model)))
 }
 
 fn create_user_model_from_bytes(bytes: RString, language_id: String) -> Result<UserModel, Error> {
     let raw = unsafe { bytes.as_slice() }.to_vec();
     let workbook: Workbook = bitcode::decode(&raw).map_err(workbook_error)?;
-    let model = CoreModel::from_workbook(workbook, leak_str(&language_id)).map_err(workbook_error)?;
+    let model = CoreModel::from_workbook(workbook, language(&language_id)?).map_err(workbook_error)?;
     Ok(UserModel::new(CoreUserModel::from_model(model)))
 }
 
