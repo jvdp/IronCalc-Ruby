@@ -41,5 +41,10 @@ jobs:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
       - run: sudo apt-get update && sudo apt-get install -y libclang-dev
+      # rb-sys has no Rust implementation of its stable API for an unreleased
+      # Ruby; this compiles the C fallback instead. Set only for head: rb-sys
+      # treats the variable as on whatever its value.
+      - if: matrix.ruby == 'head'
+        run: echo "RB_SYS_STABLE_API_COMPILED_FALLBACK=1" >> "$GITHUB_ENV"
       - run: bundle exec rake compile
       - run: bundle exec rake test
