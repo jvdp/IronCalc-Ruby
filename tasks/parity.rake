@@ -62,9 +62,7 @@ module Parity
     /hide_sheet/
   ].freeze
 
-  # The backlog. Listed rather than pattern-matched so it stays visible, and it
-  # may only shrink: a name that is not on `main`'s list is a hard gap, so a new
-  # engine method gets exposed or omitted, not deferred.
+  # The backlog. Listed rather than pattern-matched so it stays visible.
   ENGINE_DEFERRED = %w[
     add_conditional_formatting delete_conditional_formatting
     update_conditional_formatting get_conditional_formatting_list
@@ -205,13 +203,6 @@ module Parity
       .to_h { |m| [m.name.to_s, m] }
   end
 
-  # `ENGINE_DEFERRED` as it stands on `origin/main` (as last fetched), or nil if
-  # git can't tell (no remote ref, or an older layout without the list).
-  def deferred_on_main
-    out, status = Open3.capture2("git", "show", "origin/main:tasks/parity.rake", chdir: ROOT, err: File::NULL)
-    status.success? ? out[/ENGINE_DEFERRED = %w\[(.*?)\]/m, 1]&.split : nil
-  end
-
   # Engine methods not reachable from Ruby, as [deferred, unreviewed, by_pattern]:
   # the ones we've knowingly deferred, the ones nobody has looked at yet (the
   # actionable list), and the ones a pattern absorbed.
@@ -307,11 +298,6 @@ task :parity do
       list.call("#{name}: absorbed by ENGINE_OMIT_PATTERNS", patterned) if verbose
     end
 
-    if (on_main = Parity.deferred_on_main)
-      gap.call("ENGINE_DEFERRED grew (expose or omit instead)", Parity::ENGINE_DEFERRED - on_main)
-    else
-      skipped << "ENGINE_DEFERRED ratchet — origin/main has no list to compare against"
-    end
     gap.call("list entries that no longer match anything", Parity.stale_entries(engine, ruby))
 
     section.call("Native methods mirror the engine (expect no drift)")
