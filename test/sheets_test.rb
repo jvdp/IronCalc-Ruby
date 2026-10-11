@@ -16,14 +16,14 @@ class SheetsTest < Minitest::Test
 
   def test_insert_sheet_at_a_position
     model.add_sheet("Last")
-    model.insert_sheet("First", 0)
+    model.insert_sheet("First", 0, nil)
 
     assert_equal %w[First Sheet1 Last], names
   end
 
   def test_insert_sheet_in_the_middle
     model.add_sheet("Third")
-    model.insert_sheet("Second", 1)
+    model.insert_sheet("Second", 1, nil)
 
     assert_equal %w[Sheet1 Second Third], names
   end
@@ -31,20 +31,20 @@ class SheetsTest < Minitest::Test
   def test_insert_sheet_rejects_a_duplicate_sheet_id
     taken = model.get_worksheets_properties.first[:sheet_id]
 
-    error = assert_raises(IronCalc::Error) { model.insert_sheet("Dup", 0, sheet_id: taken) }
+    error = assert_raises(IronCalc::Error) { model.insert_sheet("Dup", 0, taken) }
 
     assert_match(/already in use/, error.message)
     assert_equal ["Sheet1"], names, "the workbook is left untouched"
   end
 
   def test_insert_sheet_accepts_an_unused_sheet_id
-    model.insert_sheet("Explicit", 0, sheet_id: 42)
+    model.insert_sheet("Explicit", 0, 42)
 
     assert_equal [42, 1], model.get_worksheets_properties.map { |s| s[:sheet_id] }
   end
 
   def test_sheet_ids_stay_unique
-    model.insert_sheet("A", 0)
+    model.insert_sheet("A", 0, nil)
     model.add_sheet("B")
     ids = model.get_worksheets_properties.map { |s| s[:sheet_id] }
 

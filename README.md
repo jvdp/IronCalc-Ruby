@@ -39,8 +39,28 @@ um.get_formatted_cell_value(0, 1, 1)    # => "3"
 diffs = um.flush_send_queue             # binary diff to send to peers
 ```
 
-Coordinates: `sheet` is a 0-based index; `row` and `column` are 1-based. Styles
-are exchanged as plain Ruby hashes via `get_cell_style` / `set_cell_style`.
+Coordinates: `sheet` is a 0-based index; `row` and `column` are 1-based. Method
+names and signatures are the engine's own. Engine structs, such as styles and
+cell ranges, are plain Ruby Hashes keyed by their field names.
+
+### API overview
+
+The [API reference](https://jvdp.github.io/IronCalc-Ruby/) documents every method; it shows the latest
+release, and [older versions](https://jvdp.github.io/IronCalc-Ruby/versions.html) are kept too.
+
+- [`IronCalc`](https://jvdp.github.io/IronCalc-Ruby/IronCalc.html) — module functions: the constructors (see
+  [Loading and saving](#loading-and-saving)) and utilities for cell references,
+  such as [`number_to_column`](https://jvdp.github.io/IronCalc-Ruby/IronCalc.html#number_to_column-class_method)
+  and [`parse_reference_a1`](https://jvdp.github.io/IronCalc-Ruby/IronCalc.html#parse_reference_a1-class_method).
+- [`IronCalc::UserModel`](https://jvdp.github.io/IronCalc-Ruby/IronCalc/UserModel.html) — the recommended API.
+  It recalculates after every change, supports `undo` / `redo`, and records
+  diffs for collaboration
+  ([`flush_send_queue`](https://jvdp.github.io/IronCalc-Ruby/IronCalc/UserModel.html#flush_send_queue-instance_method)).
+  Styles are set per property with
+  [`update_range_style`](https://jvdp.github.io/IronCalc-Ruby/IronCalc/UserModel.html#update_range_style-instance_method).
+- [`IronCalc::Model`](https://jvdp.github.io/IronCalc-Ruby/IronCalc/Model.html) — the raw API. You call
+  `evaluate` yourself; in return it offers typed cell access, whole-style
+  reads and writes, and row and column default styles.
 
 ### Typed cell access
 
@@ -59,15 +79,23 @@ model.get_cell_value_by_index(0, 1, 2)  # => 42.5 (Float, not "42.5")
 model.get_cell_value_by_ref("Sheet1!D1")  # => 85.0
 model.get_cell_formula(0, 1, 4)         # => "=B1*2", or nil if not a formula
 model.is_empty_cell(0, 9, 9)            # => true
-model.get_all_cells                     # => [{ sheet:, row:, column: }, ...]
+model.get_all_cells                     # => [{ index:, row:, column: }, ...]
 ```
 
-`get_all_cells` lists every cell the workbook has a record for. Clearing a
+`get_all_cells` lists every cell the workbook has a record for (`index` is the
+sheet index, the engine's field name). Clearing a
 cell's contents keeps its record, so filter with `is_empty_cell` if you want
 only cells that still hold a value.
 
-`clear_cell_contents` keeps the cell's style; `clear_cell_all` removes both.
-On `UserModel`, `clear_cell_formatting` does the opposite — style only.
+Clearing works on a range, given as the engine's `Area`:
+
+```ruby
+b2_c10 = {sheet: 0, row: 2, column: 2, width: 2, height: 9}
+model.range_clear_contents(b2_c10)   # keeps the style
+model.range_clear_all(b2_c10)        # contents and style
+```
+
+On `UserModel`, `range_clear_formatting` does the opposite — style only.
 
 ### Rows, columns and sheets
 
@@ -75,15 +103,15 @@ Rows and columns can carry a default style. As with `set_cell_style`, a style is
 a complete structure, so read one, change a field, and pass it back:
 
 ```ruby
-style = model.get_cell_style(0, 1, 1)
-style["num_fmt"] = "0.00"
+style = model.get_style_for_cell(0, 1, 1)
+style[:num_fmt] = "0.00"
 model.set_column_style(0, 2, style)
 model.get_column_style(0, 2)    # => Hash, or nil if the column has no style
 model.delete_column_style(0, 2)
 
-model.copy_cell_style(0, 1, 1, 0, 5, 5)   # style only, works across sheets
+model.copy_cell_style([0, 1, 1], [0, 5, 5])   # style only, works across sheets
 
-model.insert_sheet("Summary", 0)          # position, rather than appending
+model.insert_sheet("Summary", 0, nil)     # position, rather than appending
 model.set_sheet_state(1, "hidden")        # or "visible" / "veryHidden"
 ```
 
@@ -104,13 +132,13 @@ manage it yourself.
 
 ### Defined names
 
-Named ranges, on both APIs. `scope` is a 0-based sheet index, or `nil` (the
-default) for a workbook-scoped name. They survive both an xlsx round trip and
+Named ranges, on both APIs. `scope` is a 0-based sheet index, or `nil` for a
+workbook-scoped name. They survive both an xlsx round trip and
 editing in Excel/LibreOffice, so they are also a place to keep your own
 metadata about a sheet.
 
 ```ruby
-model.new_defined_name("answer", "Sheet1!$C$1")
+model.new_defined_name("answer", nil, "Sheet1!$C$1")
 model.set_user_input(0, 1, 1, "=answer")
 model.evaluate
 model.get_formatted_cell_value(0, 1, 1)  # => the value of C1
@@ -118,20 +146,43 @@ model.get_formatted_cell_value(0, 1, 1)  # => the value of C1
 model.defined_names
 # => [{ name: "answer", scope: nil, formula: "Sheet1!$C$1" }]
 
-model.update_defined_name("answer", "result", "Sheet1!$D$1")
-model.delete_defined_name("result")
+model.update_defined_name("answer", nil, "result", nil, "Sheet1!$D$1")
+model.delete_defined_name("result", nil)
 ```
 
-`is_valid_defined_name(name, formula, scope: nil)` reports whether
+`valid_defined_name?(name, scope, formula)` reports whether
 `new_defined_name` would succeed; the name must be an identifier (`"A1"` is
 rejected — it parses as a cell reference), unused in that scope, and the formula
-must parse. On `UserModel` all four mutations are undoable.
+must parse. `is_valid_defined_name` runs the same check but raises
+`IronCalc::Error` with the reason. On `UserModel` all three mutations are
+undoable.
 
-### Top-level methods
+### Loading and saving
 
-`create`, `load_from_xlsx`, `load_from_icalc`, `load_from_bytes`,
-`create_user_model`, `create_user_model_from_xlsx`,
-`create_user_model_from_icalc`, `create_user_model_from_bytes`.
+| | `Model` | `UserModel` | save with |
+|---|---|---|---|
+| new workbook | `create` | `create_user_model` | |
+| xlsx file | `load_from_xlsx` | `create_user_model_from_xlsx` | `save_to_xlsx` |
+| xlsx in memory | `load_from_xlsx_bytes` | `create_user_model_from_xlsx_bytes` | `to_xlsx_bytes` |
+| icalc file | `load_from_icalc` | `create_user_model_from_icalc` | `save_to_icalc` |
+| icalc in memory | `load_from_bytes` | `create_user_model_from_bytes` | `to_bytes` |
+
+icalc is IronCalc's own compact format; use xlsx for anything another
+spreadsheet application should open. The constructors take
+`(name_or_path, locale, tz, language_id)`, except that the bytes variants take
+the bytes first, and the icalc ones need only the language.
+
+### Utilities
+
+```ruby
+IronCalc.number_to_column(28)          # => "AB"
+IronCalc.column_to_number("AB")        # => 28
+IronCalc.parse_reference_a1("$B3")     # => {row: 3, column: 2, absolute_row: false, absolute_column: true}
+IronCalc.quote_name("My Sheet")        # => "'My Sheet'"
+```
+
+Also `parse_reference_r1c1`, the `is_valid_*` checks, `get_supported_locales`
+and `get_all_timezones`; see the [`IronCalc` module](https://jvdp.github.io/IronCalc-Ruby/IronCalc.html).
 
 Errors raised by the engine surface as `IronCalc::Error`.
 
@@ -142,8 +193,11 @@ Errors raised by the engine surface as `IronCalc::Error`.
 Both are compiled native extensions (Python via **pyo3**, Ruby via **magnus** /
 **rb-sys**) exposing a module named `ironcalc` backed by the IronCalc engine.
 
-Both follow the shape of the engine, so the two APIs line up closely and Python
-examples usually translate directly. They do not cover the same amount of it —
+Both follow the shape of the engine, so the two APIs line up closely and most
+Python examples translate directly. Where Python renamed an engine method, Ruby
+keeps the engine's name: Python's `clear_cell_contents(sheet, row, column)` is
+`range_clear_contents(range)` here, and `Model.get_cell_style` is
+`get_style_for_cell`. They do not cover the same amount of it —
 see [Coverage compared to the Python bindings](#coverage-compared-to-the-python-bindings).
 
 ### What's identical
@@ -155,10 +209,10 @@ see [Coverage compared to the Python bindings](#coverage-compared-to-the-python-
   `load_from_icalc`, `load_from_bytes`, `create_user_model`,
   `create_user_model_from_xlsx`, `create_user_model_from_icalc`,
   `create_user_model_from_bytes`.
-- **Method names and signatures** for everything both expose — `set_user_input`,
-  `get_formatted_cell_value`, `evaluate`, `insert_rows`, `set_column_width`,
-  `new_sheet`, `save_to_xlsx`, `to_bytes`, … (Python's `snake_case` is also
-  Ruby's convention, so they match exactly).
+- **Method names and signatures** for everything both take from the engine
+  unchanged — `set_user_input`, `get_formatted_cell_value`, `evaluate`,
+  `insert_rows`, `set_column_width`, `new_sheet`, `save_to_xlsx`, `to_bytes`, …
+  (Python's `snake_case` is also Ruby's convention).
 - **Coordinates**: `sheet` is a 0-based index; `row` and `column` are 1-based.
 - **Semantics**: the same engine, so the same inputs produce the same results.
 
@@ -189,16 +243,22 @@ ports:
 |---|---|---|
 | Module access | `ic.create(...)` | `IronCalc.create(...)` |
 | Error type | `WorkbookError` | `IronCalc::Error` |
-| Cell style | typed `Style` / `Font` / … objects | plain `Hash` (`get_cell_style` / `set_cell_style`) |
+| Cell style | typed `Style` / `Font` / … objects | `Hash` with Symbol keys (`get_style_for_cell` / `set_cell_style`) |
 | Cell type | `CellType` enum | `Symbol` (`:number`, `:text`, …) |
 | Worksheet properties | list of `SheetProperty` objects | array of `Hash`es (`:name`, `:state`, `:sheet_id`, `:color`) |
 | Sheet dimensions | tuple `(min_row, max_row, min_col, max_col)` | 4-element `Array` |
+| Engine structs (`Area`, `CellIndex`) | spread into separate arguments | `Hash` keyed by the struct's field names |
+| Engine tuples | tuple | `Array` |
 | Binary data | `bytes` | binary `String` |
 | Version | `ironcalc.__version__` | `IronCalc::VERSION` |
 
 Rather than reconstruct Python's per-field style classes, Ruby exchanges styles
-as plain hashes (serialized as JSON across the boundary). Everything else is kept
-as close to the Python bindings as the two languages allow.
+as plain Hashes keyed by the engine's field names. A method that shares a
+name with an engine method takes the engine's parameters in the engine's order,
+with `nil` for an `Option`; conveniences get names of their own. So a range is
+one argument, `update_range_style({sheet: 0, row: 2, column: 2, width: 2,
+height: 9}, "font.b", "true")`, where Python spreads it into start and end
+corners.
 
 ### Coverage compared to the Python bindings
 
@@ -209,19 +269,30 @@ the version this gem tracks, and accurate at the time of writing:
 | | Python | Ruby |
 |---|---|---|
 | `Model` | 69 | 62 |
-| `UserModel` | 103 | 48 |
+| `UserModel` | 102 | 52 |
 
 Most of the difference is deliberate. Selection, scrolling, clipboard and
 keyboard state belong to a UI rather than to a library, and are not exposed
-here. Conditional formatting, named styles, themes and hidden rows/columns are
-a known backlog, listed explicitly in `rake parity`'s `ENGINE_DEFERRED` so they
-stay visible.
+here. Conditional formatting, named styles and themes are a known backlog,
+listed explicitly in `rake parity`'s `ENGINE_DEFERRED` so they stay visible.
 
-What Ruby adds is layering rather than extra engine coverage: Hash-based
-styles, keyword arguments for optional trailing parameters, and `batch`.
+What Ruby adds is mostly layering rather than extra engine coverage: Hash-based
+styles, `batch`, and xlsx in memory (`to_xlsx_bytes` / `load_from_xlsx_bytes`).
 
 These numbers move with every engine release; `rake parity` reports the
 current picture.
+
+## AI-assisted development
+
+These bindings are written and maintained with substantial help from
+[Claude Code](https://claude.com/claude-code), Anthropic's coding agent. A
+human maintainer directs the work, reviews every change and makes the releases.
+
+Correctness doesn't rest on review alone. The test suite, run in CI on every
+push, re-runs the engine's own formula regression fixtures through the binding.
+`rake parity` checks the API surface and method signatures against the engine
+and the Python bindings. The conventions agents follow here are in
+[AGENTS.md](https://github.com/jvdp/IronCalc-Ruby/blob/main/AGENTS.md).
 
 ## License
 

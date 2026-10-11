@@ -70,9 +70,9 @@ class CellAccessTest < Minitest::Test
 
     # Ordered by sheet, then row, then column.
     assert_equal [
-      {sheet: 0, row: 1, column: 3},
-      {sheet: 0, row: 2, column: 1},
-      {sheet: 1, row: 5, column: 5}
+      {index: 0, row: 1, column: 3},
+      {index: 0, row: 2, column: 1},
+      {index: 1, row: 5, column: 5}
     ], model.get_all_cells
   end
 
@@ -82,10 +82,10 @@ class CellAccessTest < Minitest::Test
 
   def test_get_all_cells_still_lists_a_cleared_cell
     model.set_user_input(0, 1, 1, "x")
-    model.clear_cell_contents(0, 1, 1)
+    model.range_clear_contents({sheet: 0, row: 1, column: 1, width: 1, height: 1})
 
     assert model.is_empty_cell(0, 1, 1)
-    assert_equal [{sheet: 0, row: 1, column: 1}], model.get_all_cells
+    assert_equal [{index: 0, row: 1, column: 1}], model.get_all_cells
   end
 
   def test_error_cells_read_back_as_their_error_string
@@ -98,23 +98,23 @@ class CellAccessTest < Minitest::Test
     assert_equal :error_value, model.get_cell_type(0, 1, 1)
   end
 
-  def test_clear_cell_all_removes_content_and_style
+  def test_range_clear_all_removes_content_and_style
     model.set_user_input(0, 1, 1, "x")
-    model.set_cell_style(0, 1, 1, style_with { |s| s["font"]["b"] = true })
+    model.set_cell_style(0, 1, 1, style_with { |s| s[:font][:b] = true })
 
-    model.clear_cell_all(0, 1, 1)
+    model.range_clear_all({sheet: 0, row: 1, column: 1, width: 1, height: 1})
 
     assert model.is_empty_cell(0, 1, 1)
-    refute model.get_cell_style(0, 1, 1).dig("font", "b")
+    refute model.get_style_for_cell(0, 1, 1).dig(:font, :b)
   end
 
-  def test_clear_cell_contents_keeps_the_style
+  def test_range_clear_contents_keeps_the_style
     model.set_user_input(0, 1, 1, "x")
-    model.set_cell_style(0, 1, 1, style_with { |s| s["font"]["b"] = true })
+    model.set_cell_style(0, 1, 1, style_with { |s| s[:font][:b] = true })
 
-    model.clear_cell_contents(0, 1, 1)
+    model.range_clear_contents({sheet: 0, row: 1, column: 1, width: 1, height: 1})
 
     assert_equal "", model.get_formatted_cell_value(0, 1, 1)
-    assert model.get_cell_style(0, 1, 1).dig("font", "b")
+    assert model.get_style_for_cell(0, 1, 1).dig(:font, :b)
   end
 end
