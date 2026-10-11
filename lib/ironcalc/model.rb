@@ -58,40 +58,6 @@ module IronCalc
     end
   end
 
-  class UserModel
-    # Sets the cell style from a Hash like the one {#get_cell_style} returns,
-    # applying each leaf through {#update_range_style}, since the engine's
-    # UserModel has no whole-style setter.
-    #
-    # @param sheet [Integer] 0-based sheet index
-    # @param row [Integer] 1-based row
-    # @param column [Integer] 1-based column
-    # @param style [Hash] the style
-    # @return [void]
-    # @raise [IronCalc::Error]
-    def set_cell_style(sheet, row, column, style)
-      flatten_style(style).each do |path, value|
-        update_range_style({sheet: sheet, row: row, column: column, width: 1, height: 1}, path, value.to_s)
-      end
-    end
-
-    private
-
-    # Flattens a nested style Hash to engine style paths, e.g.
-    #   { font: { b: true } } => { "font.b" => true }
-    # @api private
-    def flatten_style(hash, prefix = nil)
-      hash.each_with_object({}) do |(key, value), out|
-        path = prefix ? "#{prefix}.#{key}" : key.to_s
-        if value.is_a?(Hash)
-          out.merge!(flatten_style(value, path))
-        else
-          out[path] = value
-        end
-      end
-    end
-  end
-
   Model.prepend(DefinedNames)
   UserModel.prepend(DefinedNames)
   UserModel.prepend(Batch)

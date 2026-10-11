@@ -4,7 +4,7 @@ require "ironcalc"
 # Covers the enriched UserModel surface (the recommended, auto-recalc API). The
 # raw Model is covered by surface_test.rb; here we focus on behaviours unique to
 # UserModel: automatic recalculation after every action, undo/redo, and the
-# per-property styling path (update_range_style / the set_cell_style wrapper).
+# per-property styling path (update_range_style).
 class UserModelTest < Minitest::Test
   def model
     @model ||= IronCalc.create_user_model("m", "en", "UTC", "en")
@@ -70,7 +70,7 @@ class UserModelTest < Minitest::Test
 
   def test_range_clear_formatting_keeps_contents
     model.set_user_input(0, 1, 1, "10")
-    model.set_cell_style(0, 1, 1, {font: {b: true}})
+    model.update_range_style({sheet: 0, row: 1, column: 1, width: 1, height: 1}, "font.b", "true")
 
     model.range_clear_formatting({sheet: 0, row: 1, column: 1, width: 1, height: 1})
 
@@ -80,7 +80,7 @@ class UserModelTest < Minitest::Test
 
   def test_range_clear_all_removes_contents_and_formatting
     model.set_user_input(0, 1, 1, "10")
-    model.set_cell_style(0, 1, 1, {font: {b: true}})
+    model.update_range_style({sheet: 0, row: 1, column: 1, width: 1, height: 1}, "font.b", "true")
 
     model.range_clear_all({sheet: 0, row: 1, column: 1, width: 1, height: 1})
 
@@ -111,13 +111,6 @@ class UserModelTest < Minitest::Test
     model.set_user_input(0, 1, 2, "=A1*2")
     assert_equal :number, model.get_cell_type(0, 1, 1)
     assert_equal "=A1*2", model.get_cell_content(0, 1, 2)
-  end
-
-  def test_styling_via_hash_wrapper
-    model.set_cell_style(0, 1, 1, {"font" => {"b" => true, "i" => true}})
-    style = model.get_cell_style(0, 1, 1)
-    assert_equal true, style[:font][:b]
-    assert_equal true, style[:font][:i]
   end
 
   def test_update_range_style_styles_the_whole_area

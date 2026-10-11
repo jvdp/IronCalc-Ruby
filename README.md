@@ -269,7 +269,7 @@ the version this gem tracks, and accurate at the time of writing:
 | | Python | Ruby |
 |---|---|---|
 | `Model` | 69 | 62 |
-| `UserModel` | 102 | 53 |
+| `UserModel` | 102 | 52 |
 
 Most of the difference is deliberate. Selection, scrolling, clipboard and
 keyboard state belong to a UI rather than to a library, and are not exposed

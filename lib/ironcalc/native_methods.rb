@@ -639,8 +639,7 @@ module IronCalc
   # and records diffs for collaboration ({#flush_send_queue} /
   # {#apply_external_diffs}). Mirrors IronCalc's WebAssembly binding and is a
   # superset of the Python binding's `UserModel`. Styling is per-property via
-  # {UserModel#update_range_style} (the Hash convenience {UserModel#set_cell_style}
-  # is layered on top).
+  # {UserModel#update_range_style}.
   class UserModel
     # @!method save_to_xlsx(file)
     #   Saves the workbook to an xlsx file. Fails if the file already exists.
@@ -751,7 +750,7 @@ module IronCalc
     #   Sets a single style property on every cell of a range, e.g. bold for
     #   B2:C10: +update_range_style({sheet: 0, row: 2, column: 2, width: 2,
     #   height: 9}, "font.b", "true")+. This is the user model's styling
-    #   primitive; `set_cell_style` wraps it for whole-Hash convenience.
+    #   primitive: the engine's UserModel has no whole-style setter.
     #   @param range [Hash] the engine's +Area+: +{sheet:, row:, column:, width:,
     #     height:}+
     #   @param style_path [String] dotted path, e.g. "font.b", "fill.color"

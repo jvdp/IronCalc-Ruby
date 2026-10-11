@@ -94,7 +94,7 @@ Published by `.github/workflows/docs.yml` to **GitHub Pages**. Validation (`yard
   - `user_model.rs` — `IronCalc::UserModel`, the user API.
   - `error.rs` — `IronCalc::Error` exception (`Lazy<ExceptionClass>`), via `workbook_error`.
 - **`lib/ironcalc.rb`** — version-aware require of the native extension (built gems put it under a Ruby-version subdir; a local compile sits directly in `lib/ironcalc/`), then `model.rb`.
-- **`lib/ironcalc/model.rb`** — the Ruby helpers: `UserModel#set_cell_style`, `defined_names`, `valid_defined_name?`, `batch`.
+- **`lib/ironcalc/model.rb`** — the Ruby helpers: `defined_names`, `valid_defined_name?`, `batch`.
 - **`tasks/`** — `parity.rake`, `yard.rake`, `changelog.rake`, `release.rake`.
 
 **Coordinates everywhere:** `sheet` is a 0-based `u32`; `row`/`column` are 1-based.
@@ -110,7 +110,7 @@ The engine exposes two surfaces and the split matters:
 - **`IronCalc::UserModel`** — **auto-evaluates after every action** and records diffs for collaboration (`flush_send_queue` / `apply_external_diffs`) and for undo. This is the recommended path and mirrors the **WASM binding**, which is the engine's canonical, best-maintained user-facing surface. Because every mutation is a tracked diff, `undo` / `redo` / `can_undo` / `can_redo` work across everything, including defined names.
 - **`IronCalc::Model`** — the **raw** API: you must call `evaluate` yourself, and misuse can leave the workbook in an inconsistent state. It is what `IronCalc.create` / `load_from_xlsx` / `load_from_bytes` return, so plenty of consumer code uses it, and it is *not* frozen at Python parity — add to it when the engine has something useful.
 
-Styling differs between the two: `Model` reads and writes a whole style (`get_style_for_cell` / `set_cell_style`); the engine's `UserModel` reads one with `get_cell_style` but has **no whole-Style setter**, so the `UserModel#set_cell_style` helper flattens the Hash to dotted paths and applies each leaf via `update_range_style`.
+Styling differs between the two: `Model` reads and writes a whole style (`get_style_for_cell` / `set_cell_style`); the engine's `UserModel` reads one with `get_cell_style` but has **no whole-Style setter**: it styles per property through `update_range_style`, whose style paths (`font.b`, `font.size`, `fill.color`, `num_fmt`, `alignment.*`, …) cover only part of the style Hash and don't all match its keys (`font.size` vs `sz`), so a style read from `get_cell_style` can't be written back.
 
 When adding a method, prefer adding it to **both** classes unless the engine only has it on one.
 
