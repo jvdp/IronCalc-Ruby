@@ -132,6 +132,7 @@ class UserModelTest < Minitest::Test
   def test_update_range_style_rejects_a_malformed_area
     misspelled = {sheet: 0, row: 1, col: 1, width: 1, height: 1}
     assert_raises(IronCalc::Error) { model.update_range_style(misspelled, "font.b", "true") }
+    assert_raises(TypeError) { model.update_range_style(nil, "font.b", "true") }
     assert_raises(ArgumentError) { model.update_range_style(0, 1, 1, 1, 1, "font.b", "true") }
   end
 

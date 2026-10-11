@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::io::Cursor;
 
 use magnus::value::StaticSymbol;
+use magnus::error::ErrorType;
 use magnus::value::ReprValue;
 use magnus::{IntoValue, RArray, RString, Ruby, TryConvert, Value};
 use serde::de::DeserializeOwned;
@@ -22,7 +23,13 @@ pub(crate) fn to_ruby<T: Serialize>(value: &T) -> Result<Value, magnus::Error> {
 }
 
 pub(crate) fn from_ruby<T: DeserializeOwned>(value: Value) -> Result<T, magnus::Error> {
-    serde_magnus::deserialize(&ruby(), value).map_err(workbook_error)
+    let ruby = ruby();
+    serde_magnus::deserialize(&ruby, value).map_err(|error| match error.error_type() {
+        // A value of the wrong Ruby type stays a TypeError, as for any argument.
+        _ if error.is_kind_of(ruby.exception_type_error()) => error,
+        ErrorType::Error(_, message) => workbook_error(message),
+        _ => error,
+    })
 }
 
 fn ruby() -> Ruby {
