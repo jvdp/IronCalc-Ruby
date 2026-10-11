@@ -18,13 +18,15 @@ module Parity
   CLASSES = %w[Model UserModel].freeze
 
   # Native methods with no engine method of the same name on either class: the
-  # xlsx/icalc writers live in the export crate, `get_sheet_dimensions` reads a
-  # worksheet, and UserModel reads hidden state through its raw model. Methods
-  # implemented in Ruby are helpers by definition and need no entry.
+  # xlsx/icalc writers live in the export crate and `get_sheet_dimensions` reads
+  # a worksheet. Methods implemented in Ruby are helpers by definition and need
+  # no entry.
   NATIVE_EXTRAS = %w[
     save_to_xlsx to_xlsx_bytes save_to_icalc get_sheet_dimensions
-    is_row_hidden is_column_hidden
   ].freeze
+
+  # Ruby modules prepended to each class; their methods are helpers.
+  PREPENDED = {"Model" => %w[DefinedNames], "UserModel" => %w[DefinedNames Batch]}.freeze
 
   # Engine methods we intentionally do not expose. Keyed per class where the
   # reason is specific to one.
@@ -185,8 +187,9 @@ module Parity
     @python_api = nil
   end
 
-  # Methods YARD documents on `IronCalc::<class_name>`, `@!method` stubs and
-  # inline-documented Ruby methods alike, as {name => YARD::CodeObjects::MethodObject}.
+  # Methods YARD documents on `IronCalc::<class_name>` and the modules prepended
+  # to it, `@!method` stubs and inline-documented Ruby methods alike, as
+  # {name => YARD::CodeObjects::MethodObject}.
   def documented(class_name)
     @registry ||= begin
       YARD::Logger.instance.level = YARD::Logger::ERROR
@@ -194,14 +197,16 @@ module Parity
       YARD.parse(File.join(ROOT, "lib", "**", "*.rb"))
       true
     end
-    YARD::Registry.at("IronCalc::#{class_name}")
-      .meths(inherited: false, included: false)
+    owners = ["IronCalc::#{class_name}"] + PREPENDED.fetch(class_name).map { |m| "IronCalc::#{m}" }
+    # YARD registers every Ruby method, so documented means it has prose or tags.
+    owners.flat_map { |path| YARD::Registry.at(path).meths(inherited: false, included: false) }
       .select { |m| m.scope == :instance && m.visibility == :public }
+      .reject { |m| m.docstring.blank? && m.tags.empty? }
       .to_h { |m| [m.name.to_s, m] }
   end
 
-  # `ENGINE_DEFERRED` as it stands on `main`, or nil if git can't tell (no
-  # remote ref, or an older layout without the list).
+  # `ENGINE_DEFERRED` as it stands on `origin/main` (as last fetched), or nil if
+  # git can't tell (no remote ref, or an older layout without the list).
   def deferred_on_main
     out, status = Open3.capture2("git", "show", "origin/main:tasks/parity.rake", chdir: ROOT, err: File::NULL)
     status.success? ? out[/ENGINE_DEFERRED = %w\[(.*?)\]/m, 1]&.split : nil
@@ -217,12 +222,13 @@ module Parity
   end
 
   # List entries that no longer describe anything: omitted or deferred names the
-  # engine doesn't have (or that we now expose), and extras we no longer define.
+  # engine doesn't have (or that we now expose), and extras we no longer define
+  # or that the engine has after all.
   def stale_entries(engine, ruby)
     all_engine = engine.values_at(*CLASSES).flat_map(&:keys)
     exposed = ruby.values_at(*CLASSES).flat_map { |data| data["all"] }
     omitted = ENGINE_OMIT_SHARED + ENGINE_OMIT.values.flatten + ENGINE_DEFERRED
-    (omitted - all_engine) + (omitted & exposed) + (NATIVE_EXTRAS - exposed)
+    (omitted - all_engine) + (omitted & exposed) + (NATIVE_EXTRAS - exposed) + (NATIVE_EXTRAS & all_engine)
   end
 
   # Native methods with no engine method of that name on either class.
@@ -247,7 +253,7 @@ module Parity
   # [arity mismatches, undocumented, stale].
   def doc_gap(class_name, data)
     docs = documented(class_name)
-    own = data["own"]
+    own = data["all"]
 
     mismatched = docs.filter_map do |name, doc|
       actual = data["arity"][name]
@@ -303,6 +309,8 @@ task :parity do
 
     if (on_main = Parity.deferred_on_main)
       gap.call("ENGINE_DEFERRED grew (expose or omit instead)", Parity::ENGINE_DEFERRED - on_main)
+    else
+      skipped << "ENGINE_DEFERRED ratchet — origin/main has no list to compare against"
     end
     gap.call("list entries that no longer match anything", Parity.stale_entries(engine, ruby))
 
