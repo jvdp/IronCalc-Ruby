@@ -2,7 +2,8 @@ require "minitest/autorun"
 require "ironcalc"
 require_relative "models_helper"
 
-# Sheet insertion at a position, and sheet visibility, on the raw Model.
+# Sheet insertion at a position, duplication, moves, and sheet visibility, on
+# the raw Model.
 class SheetsTest < Minitest::Test
   include ModelsHelper
 
@@ -49,6 +50,50 @@ class SheetsTest < Minitest::Test
     ids = model.get_worksheets_properties.map { |s| s[:sheet_id] }
 
     assert_equal ids.uniq, ids
+  end
+
+  def test_duplicate_sheet_copies_content_and_style_after_the_source
+    model.add_sheet("Other")
+    model.set_user_input(0, 1, 1, "=1+1")
+    bold = style_with { |s| s[:font][:b] = true }
+    model.set_cell_style(0, 1, 1, bold)
+
+    assert_equal ["Sheet1 (1)", 1], model.duplicate_sheet(0)
+    model.evaluate
+
+    assert_equal ["Sheet1", "Sheet1 (1)", "Other"], names
+    assert_equal "=1+1", model.get_cell_formula(1, 1, 1)
+    assert_equal "2", model.get_formatted_cell_value(1, 1, 1)
+    assert model.get_style_for_cell(1, 1, 1)[:font][:b]
+  end
+
+  def test_duplicate_sheet_allocates_a_new_sheet_id
+    model.duplicate_sheet(0)
+    ids = model.get_worksheets_properties.map { |s| s[:sheet_id] }
+
+    assert_equal ids.uniq, ids
+  end
+
+  def test_duplicate_sheet_rejects_an_out_of_range_index
+    assert_raises(IronCalc::Error) { model.duplicate_sheet(1) }
+  end
+
+  def test_move_sheet_keeps_cross_sheet_references
+    model.add_sheet("B")
+    model.add_sheet("C")
+    model.set_user_input(2, 1, 1, "7")
+    model.set_user_input(0, 1, 1, "=C!A1")
+    model.move_sheet(2, 0)
+    model.evaluate
+
+    assert_equal %w[C Sheet1 B], names
+    assert_equal "7", model.get_formatted_cell_value(1, 1, 1)
+  end
+
+  def test_move_sheet_rejects_an_out_of_range_index
+    error = assert_raises(IronCalc::Error) { model.move_sheet(0, 1) }
+
+    assert_match(/too large/, error.message)
   end
 
   def test_set_sheet_state_hidden

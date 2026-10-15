@@ -287,6 +287,7 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
         get_worksheets_properties/0, get_sheet_dimensions/1, set_sheet_color/2,
         add_sheet/1, new_sheet/0, insert_sheet/3, set_sheet_state/2,
         delete_sheet/1, rename_sheet/2, rename_sheet_by_index/2,
+        duplicate_sheet/1, move_sheet/2,
     ]);
     // Defined names
     define_methods!(model_class, Model, [
@@ -330,6 +331,7 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     define_methods!(user_model_class, UserModel, [
         get_worksheets_properties/0, get_sheet_dimensions/1, set_sheet_color/2,
         new_sheet/0, delete_sheet/1, rename_sheet/2,
+        duplicate_sheet/1, move_sheet/2,
     ]);
     // Defined names
     define_methods!(user_model_class, UserModel, [

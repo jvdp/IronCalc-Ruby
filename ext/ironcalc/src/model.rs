@@ -668,6 +668,20 @@ impl Model {
             .map_err(workbook_error)
     }
 
+    pub fn duplicate_sheet(&self, source_index: u32) -> Result<(String, u32), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .duplicate_sheet(source_index)
+            .map_err(workbook_error)
+    }
+
+    pub fn move_sheet(&self, sheet_index: u32, new_index: u32) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .move_sheet(sheet_index, new_index)
+            .map_err(workbook_error)
+    }
+
     pub fn get_sheet_dimensions(&self, sheet: u32) -> Result<(i32, i32, i32, i32), magnus::Error> {
         let model = self.model.borrow();
         let worksheet = model.workbook.worksheet(sheet).map_err(workbook_error)?;

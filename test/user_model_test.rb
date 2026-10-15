@@ -209,6 +209,28 @@ class UserModelTest < Minitest::Test
     assert_equal 1, model.get_worksheets_properties.size
   end
 
+  def test_duplicate_and_move_sheet_are_undoable
+    model.set_user_input(0, 1, 1, "copied")
+    model.duplicate_sheet(0)
+    model.move_sheet(1, 0)
+    names = -> { model.get_worksheets_properties.map { |s| s[:name] } }
+    assert_equal ["Sheet1 (1)", "Sheet1"], names.call
+    assert_equal "copied", model.get_formatted_cell_value(0, 1, 1)
+
+    model.undo
+    assert_equal ["Sheet1", "Sheet1 (1)"], names.call
+    model.undo
+    assert_equal ["Sheet1"], names.call
+
+    model.redo
+    assert_equal "copied", model.get_formatted_cell_value(1, 1, 1)
+  end
+
+  def test_duplicate_and_move_sheet_reject_bad_indices
+    assert_raises(IronCalc::Error) { model.duplicate_sheet(1) }
+    assert_raises(IronCalc::Error) { model.move_sheet(0, 1) }
+  end
+
   def test_sheet_dimensions
     model.set_user_input(0, 3, 5, "a")
     model.set_user_input(0, 10, 8, "b")
