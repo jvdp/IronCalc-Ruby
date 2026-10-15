@@ -221,6 +221,29 @@ module IronCalc
     #   Recalculates the whole workbook. Call after {#set_user_input}.
     #   @return [void]
 
+    # @!method get_max_evaluation_depth
+    #   The limit set by {#set_max_evaluation_depth}.
+    #   @return [Integer]
+
+    # @!method set_max_evaluation_depth(max_depth)
+    #   Sets how many formulas deep {#evaluate} may recurse before it unwinds
+    #   and carries on from where it stopped. It bounds the stack used, never a
+    #   result. Values below 1 are stored as 1. Whichever of this and
+    #   {#set_max_evaluation_stack} is reached first applies.
+    #   @param max_depth [Integer]
+    #   @return [void]
+
+    # @!method get_max_evaluation_stack
+    #   The limit set by {#set_max_evaluation_stack}.
+    #   @return [Integer] bytes
+
+    # @!method set_max_evaluation_stack(bytes)
+    #   Sets how many bytes of stack {#evaluate} may use before it unwinds,
+    #   counted from the first formula of the recursion. It bounds the stack
+    #   used, never a result, and can overshoot by what one formula needs.
+    #   @param bytes [Integer]
+    #   @return [void]
+
     # @!method set_user_input(sheet, row, column, value)
     #   Sets a cell's input, parsed as a user typing it would be: +"3.5"+ is a
     #   number, +"Hello"+ a string, +"=A1*2"+ a formula.
