@@ -158,6 +158,22 @@ impl Model {
         self.model.borrow_mut().evaluate()
     }
 
+    pub fn get_max_evaluation_depth(&self) -> usize {
+        self.model.borrow().get_max_evaluation_depth()
+    }
+
+    pub fn set_max_evaluation_depth(&self, max_depth: usize) {
+        self.model.borrow_mut().set_max_evaluation_depth(max_depth)
+    }
+
+    pub fn get_max_evaluation_stack(&self) -> usize {
+        self.model.borrow().get_max_evaluation_stack()
+    }
+
+    pub fn set_max_evaluation_stack(&self, bytes: usize) {
+        self.model.borrow_mut().set_max_evaluation_stack(bytes)
+    }
+
     // Set / clear values ----------------------------------------------------
 
     pub fn set_user_input(

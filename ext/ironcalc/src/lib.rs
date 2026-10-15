@@ -252,6 +252,8 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     // Persistence and evaluation
     define_methods!(model_class, Model, [
         save_to_xlsx/1, to_xlsx_bytes/0, save_to_icalc/1, to_bytes/0, evaluate/0,
+        get_max_evaluation_depth/0, set_max_evaluation_depth/1,
+        get_max_evaluation_stack/0, set_max_evaluation_stack/1,
     ]);
     // Set / clear values
     define_methods!(model_class, Model, [
