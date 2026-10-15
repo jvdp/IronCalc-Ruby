@@ -37,13 +37,11 @@ module Parity
     formula_completion cycle_reference
   ].freeze
   ENGINE_OMIT = {
-    # Constructors, the sheet-id allocator, by-name/by-id variants of operations
-    # we expose by index, and the named-style setters, which need the
-    # named-style table we don't expose yet.
+    # Constructors, the sheet-id allocator, and by-name/by-id variants of
+    # operations we expose by index.
     "Model" => %w[
       from_workbook delete_sheet_by_name delete_sheet_by_sheet_id
-      get_new_sheet_id set_cell_style_by_name
-      set_sheet_style set_sheet_row_style set_sheet_column_style
+      get_new_sheet_id
     ].freeze,
     # Constructors, the raw-model escape hatch, workbook naming, and UI-only
     # helpers not covered by the patterns below.
@@ -68,9 +66,6 @@ module Parity
     update_conditional_formatting get_conditional_formatting_list
     evaluate_conditional_formatting get_dxf_for_conditional_formatting
     raise_conditional_formatting_priority lower_conditional_formatting_priority
-    create_named_style update_named_style delete_named_style
-    get_named_style get_named_style_includes get_named_style_list
-    get_builtin_named_styles
     get_theme set_theme resolve_color
     get_extended_style_for_cell get_extended_cell_style
     duplicate_sheet move_sheet

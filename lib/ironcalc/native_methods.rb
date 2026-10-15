@@ -629,6 +629,87 @@ module IronCalc
     #   @return [void]
     #   @raise [IronCalc::Error]
 
+    # @!method get_named_style_list
+    #   The names of the workbook's named styles.
+    #   @return [Array<String>]
+
+    # @!method get_named_style(name)
+    #   A named style, as a Hash shaped like {#get_style_for_cell}'s.
+    #   @param name [String] case-sensitive
+    #   @return [Hash]
+    #   @raise [IronCalc::Error] if the workbook has no style of that name
+
+    # @!method get_named_style_includes(name)
+    #   The formatting categories a named style carries, as a Hash of booleans
+    #   keyed +:number_format+, +:font+, +:fill+, +:border+, +:alignment+ and
+    #   +:protection+. Applying the style sets only these categories.
+    #   @param name [String]
+    #   @return [Hash]
+    #   @raise [IronCalc::Error] if the workbook has no style of that name
+
+    # @!method create_named_style(name, style, includes)
+    #   Adds a named style.
+    #   @param name [String]
+    #   @param style [Hash] a complete style, as for +set_cell_style+
+    #   @param includes [Hash] as returned by {#get_named_style_includes}; a
+    #     missing key counts as +true+, so +{}+ includes every category
+    #   @return [void]
+    #   @raise [IronCalc::Error] if the name is already taken, or the style is
+    #     incomplete
+
+    # @!method update_named_style(name, new_name, style, includes)
+    #   Replaces a named style's formatting and included categories, and renames
+    #   it unless +new_name+ equals +name+. Cells, rows and columns using the
+    #   style pick up the new formatting, except where they override it.
+    #   @param name [String]
+    #   @param new_name [String]
+    #   @param style [Hash] a complete style
+    #   @param includes [Hash] as for {#create_named_style}
+    #   @return [void]
+    #   @raise [IronCalc::Error] if the style does not exist or is built-in
+    #     (+normal+), or +new_name+ is already taken
+
+    # @!method delete_named_style(name)
+    #   Removes a named style. Cells that use it keep their formatting.
+    #   @param name [String]
+    #   @return [void]
+    #   @raise [IronCalc::Error] if the style does not exist or is built-in
+
+    # @!method set_cell_style_by_name(sheet, row, column, style_name)
+    #   Applies a named style to a cell: the categories the style includes
+    #   replace the cell's, the rest of its formatting stays.
+    #   @param sheet [Integer]
+    #   @param row [Integer]
+    #   @param column [Integer]
+    #   @param style_name [String]
+    #   @return [void]
+    #   @raise [IronCalc::Error] if the workbook has no style of that name
+
+    # @!method set_sheet_style(sheet, style_name)
+    #   Makes a named style the default style of a whole sheet.
+    #   @param sheet [Integer]
+    #   @param style_name [String]
+    #   @return [void]
+    #   @raise [IronCalc::Error] if the workbook has no style of that name
+
+    # @!method set_sheet_row_style(sheet, row, style_name)
+    #   Makes a named style the default style of a whole row, as read back by
+    #   {#get_row_style}.
+    #   @param sheet [Integer]
+    #   @param row [Integer]
+    #   @param style_name [String]
+    #   @return [void]
+    #   @raise [IronCalc::Error] if the workbook has no style of that name
+
+    # @!method set_sheet_column_style(sheet, column, style_name)
+    #   Makes a named style the default style of a whole column, as read back by
+    #   {#get_column_style}.
+    #   @param sheet [Integer]
+    #   @param column [Integer]
+    #   @param style_name [String]
+    #   @return [void]
+    #   @raise [IronCalc::Error] if the workbook has no style of that name
+
     # (yardoc bug lsegal/yard#1207). Doc-only file, never loaded at runtime.
     # @!visibility private
     def __yard_anchor__
@@ -972,6 +1053,58 @@ module IronCalc
     #   Re-enables automatic recalculation. Does not recalculate by itself; call
     #   +evaluate+ afterwards to bring the workbook up to date.
     #   @return [void]
+
+    # @!method get_named_style_list
+    #   The names of the workbook's named styles.
+    #   @return [Array<String>]
+
+    # @!method get_named_style(name)
+    #   A named style, as a Hash shaped like {#get_cell_style}'s.
+    #   @param name [String] case-sensitive
+    #   @return [Hash]
+    #   @raise [IronCalc::Error] if the workbook has no style of that name
+
+    # @!method get_named_style_includes(name)
+    #   The formatting categories a named style carries, as a Hash of booleans
+    #   keyed +:number_format+, +:font+, +:fill+, +:border+, +:alignment+ and
+    #   +:protection+. Applying the style sets only these categories.
+    #   @param name [String]
+    #   @return [Hash]
+    #   @raise [IronCalc::Error] if the workbook has no style of that name
+
+    # @!method get_builtin_named_styles
+    #   Excel's built-in named styles (+"Good"+, +"Heading 1"+, +"Percent"+, ...)
+    #   as +[name, style]+ pairs. They are definitions only: a workbook holds
+    #   one after it is created with {#create_named_style}.
+    #   @return [Array<Array(String, Hash)>]
+
+    # @!method create_named_style(name, style, includes)
+    #   Adds a named style. Undoable.
+    #   @param name [String]
+    #   @param style [Hash] a complete style, as returned by {#get_named_style}
+    #   @param includes [Hash] as returned by {#get_named_style_includes}; a
+    #     missing key counts as +true+, so +{}+ includes every category
+    #   @return [void]
+    #   @raise [IronCalc::Error] if the name is already taken, or the style is
+    #     incomplete
+
+    # @!method update_named_style(name, new_name, style, includes)
+    #   Replaces a named style's formatting and included categories, and renames
+    #   it unless +new_name+ equals +name+. Cells, rows and columns using the
+    #   style pick up the new formatting, except where they override it. Undoable.
+    #   @param name [String]
+    #   @param new_name [String]
+    #   @param style [Hash] a complete style
+    #   @param includes [Hash] as for {#create_named_style}
+    #   @return [void]
+    #   @raise [IronCalc::Error] if the style does not exist or is built-in
+    #     (+normal+), or +new_name+ is already taken
+
+    # @!method delete_named_style(name)
+    #   Removes a named style. Cells that use it keep their formatting. Undoable.
+    #   @param name [String]
+    #   @return [void]
+    #   @raise [IronCalc::Error] if the style does not exist or is built-in
 
     # Anchors the @!method stubs above — see {Model}.
     # @!visibility private

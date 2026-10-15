@@ -293,6 +293,13 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
         get_defined_name_list/0, new_defined_name/3, update_defined_name/5,
         delete_defined_name/2, is_valid_defined_name/3,
     ]);
+    // Named styles
+    define_methods!(model_class, Model, [
+        get_named_style_list/0, get_named_style/1, get_named_style_includes/1,
+        create_named_style/3, update_named_style/4, delete_named_style/1,
+        set_cell_style_by_name/4, set_sheet_style/2, set_sheet_row_style/3,
+        set_sheet_column_style/3,
+    ]);
     // User API: IronCalc::UserModel
     let user_model_class = module.define_class("UserModel", ruby.class_object())?;
     // Persistence and collaboration (diff queue)
@@ -335,6 +342,12 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     define_methods!(user_model_class, UserModel, [
         get_defined_name_list/0, new_defined_name/3, update_defined_name/5,
         delete_defined_name/2, is_valid_defined_name/3,
+    ]);
+    // Named styles
+    define_methods!(user_model_class, UserModel, [
+        get_named_style_list/0, get_named_style/1, get_named_style_includes/1,
+        get_builtin_named_styles/0,
+        create_named_style/3, update_named_style/4, delete_named_style/1,
     ]);
 
     Ok(())
