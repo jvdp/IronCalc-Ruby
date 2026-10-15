@@ -20,7 +20,10 @@ class CalcTestsTest < Minitest::Test
   # Files whose cached vs. recomputed values legitimately diverge (volatile/
   # time-dependent functions, or known engine gaps at the pinned version).
   # Keep this list short and annotated; revisit on every dependency bump.
-  SKIP_FILES = %w[].freeze
+  # NOW_TODAY: the engine passes it only with its test-only `mock_time` clock.
+  SKIP_FILES = %w[
+    NOW_TODAY
+  ].freeze
 
   # Sheet that is test scaffolding (locale/epsilon config) rather than data.
   META_SHEET = "metadata".freeze

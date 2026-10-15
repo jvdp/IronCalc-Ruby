@@ -263,18 +263,19 @@ corners.
 ### Coverage compared to the Python bindings
 
 Both bindings wrap the same engine, so anything both expose behaves the same.
-They do not expose the same amount of it. Counted against **IronCalc 0.8.3**,
+They do not expose the same amount of it. Counted against **IronCalc 0.9.0**,
 the version this gem tracks, and accurate at the time of writing:
 
 | | Python | Ruby |
 |---|---|---|
-| `Model` | 69 | 62 |
-| `UserModel` | 102 | 52 |
+| `Model` | 81 | 62 |
+| `UserModel` | 119 | 52 |
 
 Most of the difference is deliberate. Selection, scrolling, clipboard and
 keyboard state belong to a UI rather than to a library, and are not exposed
-here. Conditional formatting, named styles and themes are a known backlog,
-listed explicitly in `rake parity`'s `ENGINE_DEFERRED` so they stay visible.
+here. Conditional formatting, named styles, themes, merged cells and
+hyperlinks are a known backlog, listed explicitly in `rake parity`'s
+`ENGINE_DEFERRED` so they stay visible.
 
 What Ruby adds is mostly layering rather than extra engine coverage: Hash-based
 styles, `batch`, and xlsx in memory (`to_xlsx_bytes` / `load_from_xlsx_bytes`).
