@@ -20,7 +20,10 @@ class CalcTestsTest < Minitest::Test
   # Files whose cached vs. recomputed values legitimately diverge (volatile/
   # time-dependent functions, or known engine gaps at the pinned version).
   # Keep this list short and annotated; revisit on every dependency bump.
-  SKIP_FILES = %w[].freeze
+  # NOW_TODAY: the engine passes it only with its test-only `mock_time` clock.
+  SKIP_FILES = %w[
+    NOW_TODAY
+  ].freeze
 
   # Sheet that is test scaffolding (locale/epsilon config) rather than data.
   META_SHEET = "metadata".freeze
@@ -57,22 +60,19 @@ class CalcTestsTest < Minitest::Test
     recomputed.evaluate
 
     diffs = []
-    cached.get_worksheets_properties.each_with_index do |props, sheet|
-      next if props[:name].to_s.casecmp?(META_SHEET)
+    names = cached.get_worksheets_properties.map { |props| props[:name].to_s }
+    cached.get_all_cells.each do |cell|
+      sheet, row, col = cell.values_at(:index, :row, :column)
+      next if names[sheet].casecmp?(META_SHEET)
 
-      min_r, max_r, min_c, max_c = cached.get_sheet_dimensions(sheet).to_a
-      (min_r..max_r).each do |row|
-        (min_c..max_c).each do |col|
-          want = cached.get_formatted_cell_value(sheet, row, col)
-          got = recomputed.get_formatted_cell_value(sheet, row, col)
-          next if values_match?(want, got, eps)
+      want = cached.get_formatted_cell_value(sheet, row, col)
+      got = recomputed.get_formatted_cell_value(sheet, row, col)
+      next if values_match?(want, got, eps)
 
-          diffs << format("  %s!%s%d  cached=%p  recomputed=%p  (=%s)",
-            props[:name], col_letter(col), row, want, got,
-            recomputed.get_localized_cell_content(sheet, row, col))
-          return assert(false, fail_message(path, diffs)) if diffs.size >= 20
-        end
-      end
+      diffs << format("  %s!%s%d  cached=%p  recomputed=%p  (=%s)",
+        names[sheet], col_letter(col), row, want, got,
+        recomputed.get_localized_cell_content(sheet, row, col))
+      return assert(false, fail_message(path, diffs)) if diffs.size >= 20
     end
 
     assert_empty diffs, fail_message(path, diffs)
