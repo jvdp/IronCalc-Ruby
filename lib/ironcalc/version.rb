@@ -1,3 +1,3 @@
 module IronCalc
-  VERSION = "0.8.3.0"
+  VERSION = "0.9.0.0"
 end

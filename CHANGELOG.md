@@ -1,3 +1,7 @@
+## 0.9.0.0
+
+- update the IronCalc engine to 0.9.0
+
 ## 0.8.3.0
 
 - update the IronCalc engine to 0.8.3
