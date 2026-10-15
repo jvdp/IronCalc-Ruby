@@ -10,7 +10,7 @@ use serde::Serialize;
 
 use xlsx::base::cell::CellValue;
 use xlsx::base::expressions::types::Area;
-use xlsx::base::types::{Color, SheetState, Style};
+use xlsx::base::types::{Color, SheetState, Style, Theme};
 use xlsx::base::Model as CoreModel;
 use xlsx::export::{save_to_icalc, save_to_xlsx, save_xlsx_to_writer};
 
@@ -733,5 +733,17 @@ impl Model {
             .borrow_mut()
             .is_valid_defined_name(&name, scope, &formula)
             .map_err(workbook_error)
+    }
+
+    // Themes ----------------------------------------------------------------
+
+    pub fn get_theme(&self) -> Result<Value, magnus::Error> {
+        to_ruby(&self.model.borrow().get_theme())
+    }
+
+    pub fn set_theme(&self, theme: Value) -> Result<(), magnus::Error> {
+        let theme: Theme = from_ruby(theme)?;
+        self.model.borrow_mut().set_theme(theme);
+        Ok(())
     }
 }

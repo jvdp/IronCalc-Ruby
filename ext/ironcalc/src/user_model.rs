@@ -5,6 +5,7 @@ use magnus::value::StaticSymbol;
 use magnus::{RArray, RString, Ruby, Value};
 
 use xlsx::base::expressions::types::Area;
+use xlsx::base::types::Theme;
 use xlsx::base::UserModel as CoreUserModel;
 use xlsx::export::{save_to_icalc, save_to_xlsx, save_xlsx_to_writer};
 
@@ -472,5 +473,21 @@ impl UserModel {
             .borrow_mut()
             .is_valid_defined_name(&name, scope, &formula)
             .map_err(workbook_error)
+    }
+
+    // Themes ----------------------------------------------------------------
+
+    pub fn get_theme(&self) -> Result<Value, magnus::Error> {
+        to_ruby(&self.model.borrow().get_theme())
+    }
+
+    pub fn set_theme(&self, theme: Value) -> Result<(), magnus::Error> {
+        let theme: Theme = from_ruby(theme)?;
+        self.model.borrow_mut().set_theme(theme);
+        Ok(())
+    }
+
+    pub fn resolve_color(&self, color: Value) -> Result<String, magnus::Error> {
+        Ok(self.model.borrow().resolve_color(&parse_color(color)?))
     }
 }
