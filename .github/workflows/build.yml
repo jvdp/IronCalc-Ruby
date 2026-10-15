@@ -7,15 +7,22 @@ jobs:
       - uses: actions/checkout@v6
       - uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "3.4"
+          ruby-version: ruby
           bundler-cache: true
       - run: bundle exec standardrb
 
+  # The Rubies ruby-lang.org currently maintains, plus `head`.
+  ruby-versions:
+    uses: ruby/actions/.github/workflows/ruby_versions.yml@master
+    with:
+      engine: cruby
+
   build:
+    needs: ruby-versions
     strategy:
       fail-fast: false
       matrix:
-        ruby: ["3.3", "3.4", "4.0"]
+        ruby: ${{ fromJson(needs.ruby-versions.outputs.versions) }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -32,5 +39,14 @@ jobs:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
       - run: sudo apt-get update && sudo apt-get install -y libclang-dev
+      # rb-sys has no Rust implementation of its stable API for an unreleased
+      # Ruby; this compiles the C fallback instead. Set only for head: rb-sys
+      # treats the variable as on whatever its value.
+      - if: matrix.ruby == 'head'
+        run: echo "RB_SYS_STABLE_API_COMPILED_FALLBACK=1" >> "$GITHUB_ENV"
+      # The development Ruby is an early warning, not a gate: its failing steps
+      # show red inside the job, but the job and the commit stay green.
       - run: bundle exec rake compile
+        continue-on-error: ${{ matrix.ruby == 'head' }}
       - run: bundle exec rake test
+        continue-on-error: ${{ matrix.ruby == 'head' }}
