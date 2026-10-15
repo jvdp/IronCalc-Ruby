@@ -71,7 +71,6 @@ module Parity
     create_named_style update_named_style delete_named_style
     get_named_style get_named_style_includes get_named_style_list
     get_builtin_named_styles
-    get_theme set_theme resolve_color
     get_extended_style_for_cell get_extended_cell_style
     duplicate_sheet move_sheet
     set_user_array_formula get_cell_array_structure

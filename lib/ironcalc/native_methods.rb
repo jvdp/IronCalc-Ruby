@@ -541,6 +541,19 @@ module IronCalc
     #   @raise [IronCalc::Error] with the reason, e.g. the name is already taken
     #     in that scope
 
+    # @!method get_theme
+    #   Returns the workbook theme as a Hash with Symbol keys: +:name+ and the
+    #   twelve theme colors as +"#RRGGBB"+ Strings (+:dk1+, +:lt1+, +:dk2+,
+    #   +:lt2+, +:accent1+ to +:accent6+, +:hlink+, +:fol_hlink+).
+    #   @return [Hash]
+
+    # @!method set_theme(theme)
+    #   Sets the workbook theme. Takes a *complete* theme, as returned by
+    #   {#get_theme}. Keys may be Symbols or Strings.
+    #   @param theme [Hash]
+    #   @return [void]
+    #   @raise [IronCalc::Error] if the theme is incomplete
+
     # @!method range_clear_all(area)
     #   Clears the contents *and* style of every cell in a range, removing the
     #   cells entirely. Compare +range_clear_contents+, which keeps the style.
@@ -947,6 +960,26 @@ module IronCalc
     #     +get_worksheets_properties+), or nil for workbook scope
     #   @raise [IronCalc::Error] with the reason, e.g. the name is already taken
     #     in that scope
+
+    # @!method get_theme
+    #   Returns the workbook theme as a Hash with Symbol keys: +:name+ and the
+    #   twelve theme colors as +"#RRGGBB"+ Strings (+:dk1+, +:lt1+, +:dk2+,
+    #   +:lt2+, +:accent1+ to +:accent6+, +:hlink+, +:fol_hlink+).
+    #   @return [Hash]
+
+    # @!method set_theme(theme)
+    #   Sets the workbook theme. Takes a *complete* theme, as returned by
+    #   {#get_theme}. Keys may be Symbols or Strings. Undoable.
+    #   @param theme [Hash]
+    #   @return [void]
+    #   @raise [IronCalc::Error] if the theme is incomplete
+
+    # @!method resolve_color(color)
+    #   Resolves a color against the workbook theme.
+    #   @param color [String, Array, nil] +"#RRGGBB"+ (returned as is), a
+    #     +[theme, tint]+ pair, or nil
+    #   @return [String] +"#RRGGBB"+, or +""+ for nil
+    #   @raise [IronCalc::Error] if the color is none of those shapes
 
     # @!method range_clear_all(range)
     #   Clears the contents *and* style of every cell in a range. Undoable.
