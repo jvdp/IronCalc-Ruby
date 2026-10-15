@@ -64,15 +64,10 @@ module Parity
 
   # The backlog. Listed rather than pattern-matched so it stays visible.
   ENGINE_DEFERRED = %w[
-    add_conditional_formatting delete_conditional_formatting
-    update_conditional_formatting get_conditional_formatting_list
-    evaluate_conditional_formatting get_dxf_for_conditional_formatting
-    raise_conditional_formatting_priority lower_conditional_formatting_priority
     create_named_style update_named_style delete_named_style
     get_named_style get_named_style_includes get_named_style_list
     get_builtin_named_styles
     get_theme set_theme resolve_color
-    get_extended_style_for_cell get_extended_cell_style
     duplicate_sheet move_sheet
     set_user_array_formula get_cell_array_structure
     get_max_evaluation_depth set_max_evaluation_depth

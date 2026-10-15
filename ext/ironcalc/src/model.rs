@@ -10,6 +10,7 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 use xlsx::base::cell::CellValue;
+use xlsx::base::cf_types::CfRuleInput;
 use xlsx::base::expressions::types::Area;
 use xlsx::base::types::{Color, SheetState, Style};
 use xlsx::base::Model as CoreModel;
@@ -763,5 +764,111 @@ impl Model {
             .borrow_mut()
             .is_valid_defined_name(&name, scope, &formula)
             .map_err(workbook_error)
+    }
+
+    // Conditional formatting ------------------------------------------------
+
+    pub fn get_conditional_formatting_list(&self, sheet: u32) -> Result<Value, magnus::Error> {
+        let list = self
+            .model
+            .borrow()
+            .get_conditional_formatting_list(sheet)
+            .map_err(workbook_error)?;
+        to_ruby(&list)
+    }
+
+    pub fn get_dxf_for_conditional_formatting(
+        &self,
+        sheet: u32,
+        index: usize,
+    ) -> Result<Value, magnus::Error> {
+        let dxf = self
+            .model
+            .borrow()
+            .get_dxf_for_conditional_formatting(sheet, index)
+            .map_err(workbook_error)?;
+        to_ruby(&dxf)
+    }
+
+    pub fn add_conditional_formatting(
+        &self,
+        sheet: u32,
+        range: String,
+        rule: Value,
+    ) -> Result<u32, magnus::Error> {
+        let rule: CfRuleInput = from_ruby(rule)?;
+        self.model
+            .borrow_mut()
+            .add_conditional_formatting(sheet, &range, rule)
+            .map_err(workbook_error)
+    }
+
+    pub fn delete_conditional_formatting(
+        &self,
+        sheet: u32,
+        index: usize,
+    ) -> Result<Value, magnus::Error> {
+        let removed = self
+            .model
+            .borrow_mut()
+            .delete_conditional_formatting(sheet, index)
+            .map_err(workbook_error)?;
+        to_ruby(&removed)
+    }
+
+    pub fn update_conditional_formatting(
+        &self,
+        sheet: u32,
+        index: usize,
+        new_range: String,
+        new_rule: Value,
+    ) -> Result<Value, magnus::Error> {
+        let new_rule: CfRuleInput = from_ruby(new_rule)?;
+        let old = self
+            .model
+            .borrow_mut()
+            .update_conditional_formatting(sheet, index, &new_range, new_rule)
+            .map_err(workbook_error)?;
+        to_ruby(&old)
+    }
+
+    pub fn raise_conditional_formatting_priority(
+        &self,
+        sheet: u32,
+        index: usize,
+    ) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .raise_conditional_formatting_priority(sheet, index)
+            .map_err(workbook_error)
+    }
+
+    pub fn lower_conditional_formatting_priority(
+        &self,
+        sheet: u32,
+        index: usize,
+    ) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .lower_conditional_formatting_priority(sheet, index)
+            .map_err(workbook_error)
+    }
+
+    pub fn evaluate_conditional_formatting(&self) {
+        self.model.borrow_mut().evaluate_conditional_formatting();
+    }
+
+    pub fn get_extended_style_for_cell(
+        &self,
+        sheet: u32,
+        row: i32,
+        column: i32,
+    ) -> Result<Value, magnus::Error> {
+        let style = self
+            .model
+            .borrow()
+            .get_extended_style_for_cell(sheet, row, column)
+            .map_err(workbook_error)?;
+        to_ruby(&style)
     }
 }

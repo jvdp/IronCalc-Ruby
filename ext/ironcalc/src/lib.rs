@@ -293,6 +293,14 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
         get_defined_name_list/0, new_defined_name/3, update_defined_name/5,
         delete_defined_name/2, is_valid_defined_name/3,
     ]);
+    // Conditional formatting
+    define_methods!(model_class, Model, [
+        get_conditional_formatting_list/1, get_dxf_for_conditional_formatting/2,
+        add_conditional_formatting/3, update_conditional_formatting/4,
+        delete_conditional_formatting/2,
+        raise_conditional_formatting_priority/2, lower_conditional_formatting_priority/2,
+        evaluate_conditional_formatting/0, get_extended_style_for_cell/3,
+    ]);
     // User API: IronCalc::UserModel
     let user_model_class = module.define_class("UserModel", ruby.class_object())?;
     // Persistence and collaboration (diff queue)
@@ -335,6 +343,14 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     define_methods!(user_model_class, UserModel, [
         get_defined_name_list/0, new_defined_name/3, update_defined_name/5,
         delete_defined_name/2, is_valid_defined_name/3,
+    ]);
+    // Conditional formatting
+    define_methods!(user_model_class, UserModel, [
+        get_conditional_formatting_list/1, get_dxf_for_conditional_formatting/2,
+        add_conditional_formatting/3, update_conditional_formatting/4,
+        delete_conditional_formatting/2,
+        raise_conditional_formatting_priority/2, lower_conditional_formatting_priority/2,
+        get_extended_cell_style/3,
     ]);
 
     Ok(())
