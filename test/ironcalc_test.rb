@@ -81,4 +81,35 @@ class CreateTest < Minitest::Test
       model.get_formatted_cell_value(99, 1, 1)
     end
   end
+
+  def test_create_applies_locale_and_language
+    model = IronCalc.create("model", "de", "Europe/Berlin", "es")
+    model.set_user_input(0, 1, 1, "1,5")
+    model.evaluate
+
+    assert_equal :number, model.get_cell_type(0, 1, 1), "a German decimal comma"
+    assert_equal "Hoja1", model.get_worksheets_properties.first[:name]
+  end
+
+  def test_create_user_model_applies_locale_and_language
+    model = IronCalc.create_user_model("model", "de", "Europe/Berlin", "es")
+    model.set_user_input(0, 1, 1, "1,5")
+
+    assert_equal :number, model.get_cell_type(0, 1, 1), "a German decimal comma"
+    assert_equal "Hoja1", model.get_worksheets_properties.first[:name]
+  end
+
+  def test_create_rejects_invalid_arguments
+    error = assert_raises(IronCalc::Error) { IronCalc.create("model", "xx", "UTC", "en") }
+    assert_match(/locale/, error.message)
+    error = assert_raises(IronCalc::Error) { IronCalc.create("model", "en", "Mars/Base", "en") }
+    assert_match(/timezone/, error.message)
+    error = assert_raises(IronCalc::Error) { IronCalc.create_user_model("model", "en", "UTC", "xx") }
+    assert_match(/language/i, error.message)
+  end
+
+  def test_loaders_reject_an_invalid_language
+    bytes = IronCalc.create("model", "en", "UTC", "en").to_bytes
+    assert_raises(IronCalc::Error) { IronCalc.load_from_bytes(bytes, "xx") }
+  end
 end
