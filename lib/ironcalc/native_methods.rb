@@ -488,6 +488,20 @@ module IronCalc
     #   @return [void]
     #   @raise [IronCalc::Error]
 
+    # @!method duplicate_sheet(source_index)
+    #   Copies a sheet into a new one right after it, named
+    #   +"<source name> (n)"+.
+    #   @param source_index [Integer]
+    #   @return [Array(String, Integer)] the copy's name and sheet index
+    #   @raise [IronCalc::Error] if +source_index+ is out of range
+
+    # @!method move_sheet(sheet_index, new_index)
+    #   Moves a sheet so it ends up at +new_index+, shifting the others.
+    #   @param sheet_index [Integer]
+    #   @param new_index [Integer]
+    #   @return [void]
+    #   @raise [IronCalc::Error] if either index is out of range
+
     # @!method get_sheet_dimensions(sheet)
     #   Returns +[min_row, max_row, min_column, max_column]+ over non-empty cells
     #   (an empty sheet returns +[1, 1, 1, 1]+).
@@ -896,6 +910,20 @@ module IronCalc
     #   @param new_name [String]
     #   @return [void]
     #   @raise [IronCalc::Error]
+
+    # @!method duplicate_sheet(sheet)
+    #   Copies a sheet into a new one right after it, named
+    #   +"<source name> (n)"+.
+    #   @param sheet [Integer]
+    #   @return [void]
+    #   @raise [IronCalc::Error] if +sheet+ is out of range
+
+    # @!method move_sheet(sheet_index, new_index)
+    #   Moves a sheet so it ends up at +new_index+, shifting the others.
+    #   @param sheet_index [Integer]
+    #   @param new_index [Integer]
+    #   @return [void]
+    #   @raise [IronCalc::Error] if either index is out of range
 
     # @!method get_sheet_dimensions(sheet)
     #   Returns +[min_row, max_row, min_column, max_column]+ over non-empty cells.

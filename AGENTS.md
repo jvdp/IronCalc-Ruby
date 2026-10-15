@@ -57,7 +57,7 @@ bundle exec ruby -Itest test/surface_test.rb -n test_NAME
 - `user_model_test.rb` — behaviours unique to `UserModel`: auto-recalculation, undo/redo, per-property styling, pause/resume evaluation.
 - `cell_access_test.rb` — typed setters and readers (`update_cell_with_*`, `get_cell_value_by_index`/`_by_ref`, `get_cell_formula`, `is_empty_cell`, `get_all_cells`) and the clear-cell variants.
 - `styles_test.rb` — row/column default styles and `copy_cell_style`.
-- `sheets_test.rb` — `insert_sheet` positioning and `set_sheet_state` visibility.
+- `sheets_test.rb` — `insert_sheet` positioning, `duplicate_sheet` and `move_sheet`, and `set_sheet_state` visibility.
 - `defined_names_test.rb` — defined names on both APIs, including xlsx and icalc round-trips and undo coverage.
 - `utils_test.rb` — the module-level utility functions.
 - `calc_tests_test.rb` — formula-evaluation regression guard: one test per `calc_tests/**/*.xlsx` fixture, loaded once unevaluated (Excel's cached values) vs once evaluated (IronCalc's recompute), compared cell-by-cell with the engine's relative epsilon (and per-file `METADATA!A1` epsilon/locale overrides, read as cell *content* — the formatted value shows `#VALUE!`). This re-validates the *engine* through the binding on every dependency bump.

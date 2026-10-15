@@ -73,7 +73,6 @@ module Parity
     get_builtin_named_styles
     get_theme set_theme resolve_color
     get_extended_style_for_cell get_extended_cell_style
-    duplicate_sheet move_sheet
     set_user_array_formula get_cell_array_structure
     get_max_evaluation_depth set_max_evaluation_depth
     get_max_evaluation_stack set_max_evaluation_stack
