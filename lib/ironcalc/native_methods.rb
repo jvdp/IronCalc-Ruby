@@ -541,6 +541,53 @@ module IronCalc
     #   @raise [IronCalc::Error] with the reason, e.g. the name is already taken
     #     in that scope
 
+    # @!method get_cell_link(sheet, row, column)
+    #   The link attached to a cell, as a Hash with a +:type+ key:
+    #   +{type: "External", target:, tooltip:}+ (a URL, +mailto:+ URI or file)
+    #   or +{type: "Internal", location:, tooltip:}+ (e.g. +"Sheet1!A30"+ or a
+    #   defined name). +tooltip+ may be nil. Links produced by a +HYPERLINK+
+    #   formula are not included; see {#get_links_list}.
+    #   @param sheet [Integer]
+    #   @param row [Integer]
+    #   @param column [Integer]
+    #   @return [Hash, nil] nil if the cell has no link
+    #   @raise [IronCalc::Error] if the sheet, row or column is out of range
+
+    # @!method set_cell_link(sheet, row, column, link)
+    #   Attaches a link to a cell, replacing any existing one.
+    #   @param sheet [Integer]
+    #   @param row [Integer]
+    #   @param column [Integer]
+    #   @param link [Hash] as returned by {#get_cell_link}; +:tooltip+ may be
+    #     omitted
+    #   @return [void]
+    #   @raise [IronCalc::Error] if the sheet, row or column is out of range, or
+    #     the Hash has an unknown +:type+ or lacks its +:target+ / +:location+
+    #   @raise [TypeError] if +link+ is not a Hash
+
+    # @!method delete_cell_link(sheet, row, column)
+    #   Removes the link attached to a cell; a cell without one is left as is.
+    #   @param sheet [Integer]
+    #   @param row [Integer]
+    #   @param column [Integer]
+    #   @return [void]
+    #   @raise [IronCalc::Error] if the sheet, row or column is out of range
+
+    # @!method get_links(sheet)
+    #   The sheet's links (as in {#get_cell_link}), keyed by +[row, column]+.
+    #   @param sheet [Integer]
+    #   @return [Hash{Array(Integer, Integer) => Hash}]
+    #   @raise [IronCalc::Error] if the sheet does not exist
+
+    # @!method get_links_list(sheet)
+    #   The sheet's links sorted by row and column, each a link Hash (as in
+    #   {#get_cell_link}) with +:row+, +:column+ and +:dynamic+ added.
+    #   +dynamic: true+ marks a link produced by a +HYPERLINK+ formula, which
+    #   only the formula can change.
+    #   @param sheet [Integer]
+    #   @return [Array<Hash>]
+    #   @raise [IronCalc::Error] if the sheet does not exist
+
     # @!method range_clear_all(area)
     #   Clears the contents *and* style of every cell in a range, removing the
     #   cells entirely. Compare +range_clear_contents+, which keeps the style.
@@ -947,6 +994,55 @@ module IronCalc
     #     +get_worksheets_properties+), or nil for workbook scope
     #   @raise [IronCalc::Error] with the reason, e.g. the name is already taken
     #     in that scope
+
+    # @!method get_cell_link(sheet, row, column)
+    #   The link attached to a cell, as a Hash with a +:type+ key:
+    #   +{type: "External", target:, tooltip:}+ (a URL, +mailto:+ URI or file)
+    #   or +{type: "Internal", location:, tooltip:}+ (e.g. +"Sheet1!A30"+ or a
+    #   defined name). +tooltip+ may be nil. Links produced by a +HYPERLINK+
+    #   formula are not included; see {#get_links_list}.
+    #   @param sheet [Integer]
+    #   @param row [Integer]
+    #   @param column [Integer]
+    #   @return [Hash, nil] nil if the cell has no link
+    #   @raise [IronCalc::Error] if the sheet, row or column is out of range
+
+    # @!method set_cell_link(sheet, row, column, link, label)
+    #   Attaches a link to a cell, replacing any existing one. One undo step.
+    #   @param sheet [Integer]
+    #   @param row [Integer]
+    #   @param column [Integer]
+    #   @param link [Hash] as returned by {#get_cell_link}; +:tooltip+ may be
+    #     omitted
+    #   @param label [String, nil] becomes the cell's content; nil leaves the
+    #     content as it is
+    #   @return [void]
+    #   @raise [IronCalc::Error] if the sheet, row or column is out of range, or
+    #     the Hash has an unknown +:type+ or lacks its +:target+ / +:location+
+    #   @raise [TypeError] if +link+ is not a Hash
+
+    # @!method delete_cell_link(sheet, row, column)
+    #   Removes the link attached to a cell; a cell without one is left as is.
+    #   @param sheet [Integer]
+    #   @param row [Integer]
+    #   @param column [Integer]
+    #   @return [void]
+    #   @raise [IronCalc::Error] if the sheet, row or column is out of range
+
+    # @!method get_links(sheet)
+    #   The sheet's links (as in {#get_cell_link}), keyed by +[row, column]+.
+    #   @param sheet [Integer]
+    #   @return [Hash{Array(Integer, Integer) => Hash}]
+    #   @raise [IronCalc::Error] if the sheet does not exist
+
+    # @!method get_links_list(sheet)
+    #   The sheet's links sorted by row and column, each a link Hash (as in
+    #   {#get_cell_link}) with +:row+, +:column+ and +:dynamic+ added.
+    #   +dynamic: true+ marks a link produced by a +HYPERLINK+ formula, which
+    #   only the formula can change.
+    #   @param sheet [Integer]
+    #   @return [Array<Hash>]
+    #   @raise [IronCalc::Error] if the sheet does not exist
 
     # @!method range_clear_all(range)
     #   Clears the contents *and* style of every cell in a range. Undoable.
