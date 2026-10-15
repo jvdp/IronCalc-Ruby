@@ -258,6 +258,7 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
         set_user_input/4, range_clear_contents/1, range_clear_all/1,
         update_cell_with_text/4, update_cell_with_number/4,
         update_cell_with_bool/4, update_cell_with_formula/4,
+        set_user_array_formula/6,
     ]);
     // Get values
     define_methods!(model_class, Model, [
@@ -310,6 +311,10 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
         set_user_input/4, range_clear_contents/1, range_clear_all/1,
         range_clear_formatting/1,
         get_cell_content/3, get_cell_type/3, get_formatted_cell_value/3,
+    ]);
+    // Array formulas
+    define_methods!(user_model_class, UserModel, [
+        set_user_array_formula/6, get_cell_array_structure/3,
     ]);
     // Styles (per-property; the engine user model has no whole-Style setter)
     define_methods!(user_model_class, UserModel, [

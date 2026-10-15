@@ -271,6 +271,21 @@ impl Model {
             .map_err(workbook_error)
     }
 
+    pub fn set_user_array_formula(
+        &self,
+        sheet: u32,
+        row: i32,
+        column: i32,
+        width: i32,
+        height: i32,
+        value: String,
+    ) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .set_user_array_formula(sheet, row, column, width, height, &value)
+            .map_err(workbook_error)
+    }
+
     // Get values ------------------------------------------------------------
 
     pub fn get_localized_cell_content(

@@ -574,6 +574,16 @@ module IronCalc
     #   @return [void]
     #   @raise [IronCalc::Error]
 
+    # @!method set_user_array_formula(sheet, row, column, width, height, value)
+    #   Sets an array (CSE) formula over a range anchored at +row+/+column+.
+    #   Call +evaluate+ afterwards.
+    #   @param width [Integer] number of columns
+    #   @param height [Integer] number of rows
+    #   @param value [String] the formula, including the leading +=+
+    #   @return [void]
+    #   @raise [IronCalc::Error] if the range overlaps merged cells or a cell
+    #     that is part of another array formula or dynamic spill
+
     # @!method get_cell_value_by_index(sheet, row, column)
     #   The cell's value as a Ruby object — nil, String, Float or true/false —
     #   unformatted. Compare +get_formatted_cell_value+, which always returns a
@@ -735,6 +745,29 @@ module IronCalc
     #   @param row [Integer]
     #   @param column [Integer]
     #   @return [String]
+    #   @raise [IronCalc::Error]
+
+    # @!method set_user_array_formula(sheet, row, column, width, height, formula)
+    #   Sets an array (CSE) formula over a range anchored at +row+/+column+.
+    #   Undoable.
+    #   @param width [Integer] number of columns
+    #   @param height [Integer] number of rows
+    #   @param formula [String] including the leading +=+
+    #   @return [void]
+    #   @raise [IronCalc::Error] if the range overlaps merged cells or a cell
+    #     that is part of another array formula or dynamic spill
+
+    # @!method get_cell_array_structure(sheet, row, column)
+    #   Whether a cell belongs to an array formula or a dynamic spill, in the
+    #   engine's +CellArrayStructure+ serde form: +"SingleCell"+, or a
+    #   one-entry Hash keyed by the variant as a Symbol —
+    #   +{ArrayAnchor: [width, height]}+,
+    #   +{ArrayChild: [anchor_row, anchor_column, width, height]}+, and
+    #   likewise +:DynamicAnchor+ / +:DynamicChild+ for a spill.
+    #   @param sheet [Integer]
+    #   @param row [Integer]
+    #   @param column [Integer]
+    #   @return [String, Hash{Symbol => Array<Integer>}]
     #   @raise [IronCalc::Error]
 
     # @!method get_cell_style(sheet, row, column)
