@@ -764,4 +764,66 @@ impl Model {
             .is_valid_defined_name(&name, scope, &formula)
             .map_err(workbook_error)
     }
+
+    // Merged cells ----------------------------------------------------------
+
+    pub fn merge_cells(&self, range: Value) -> Result<(), magnus::Error> {
+        let range: Area = from_ruby(range)?;
+        self.model
+            .borrow_mut()
+            .merge_cells(&range)
+            .map_err(workbook_error)
+    }
+
+    pub fn merge_cells_across(&self, range: Value) -> Result<(), magnus::Error> {
+        let range: Area = from_ruby(range)?;
+        self.model
+            .borrow_mut()
+            .merge_cells_across(&range)
+            .map_err(workbook_error)
+    }
+
+    pub fn merge_cells_center(&self, range: Value) -> Result<(), magnus::Error> {
+        let range: Area = from_ruby(range)?;
+        self.model
+            .borrow_mut()
+            .merge_cells_center(&range)
+            .map_err(workbook_error)
+    }
+
+    pub fn merge_cells_down(&self, range: Value) -> Result<(), magnus::Error> {
+        let range: Area = from_ruby(range)?;
+        self.model
+            .borrow_mut()
+            .merge_cells_down(&range)
+            .map_err(workbook_error)
+    }
+
+    pub fn unmerge_cells(&self, range: Value) -> Result<(), magnus::Error> {
+        let range: Area = from_ruby(range)?;
+        self.model
+            .borrow_mut()
+            .unmerge_cells(&range)
+            .map_err(workbook_error)
+    }
+
+    pub fn get_merged_cells(&self, sheet: u32) -> Result<Value, magnus::Error> {
+        let model = self.model.borrow();
+        let merged_cells = model.get_merged_cells(sheet).map_err(workbook_error)?;
+        to_ruby(&merged_cells)
+    }
+
+    pub fn get_merge_structure(
+        &self,
+        sheet: u32,
+        row: i32,
+        column: i32,
+    ) -> Result<Value, magnus::Error> {
+        let structure = self
+            .model
+            .borrow()
+            .get_merge_structure(sheet, row, column)
+            .map_err(workbook_error)?;
+        to_ruby(&structure)
+    }
 }

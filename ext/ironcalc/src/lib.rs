@@ -293,6 +293,11 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
         get_defined_name_list/0, new_defined_name/3, update_defined_name/5,
         delete_defined_name/2, is_valid_defined_name/3,
     ]);
+    // Merged cells
+    define_methods!(model_class, Model, [
+        merge_cells/1, merge_cells_across/1, merge_cells_center/1, merge_cells_down/1,
+        unmerge_cells/1, get_merged_cells/1, get_merge_structure/3,
+    ]);
     // User API: IronCalc::UserModel
     let user_model_class = module.define_class("UserModel", ruby.class_object())?;
     // Persistence and collaboration (diff queue)
@@ -335,6 +340,11 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     define_methods!(user_model_class, UserModel, [
         get_defined_name_list/0, new_defined_name/3, update_defined_name/5,
         delete_defined_name/2, is_valid_defined_name/3,
+    ]);
+    // Merged cells
+    define_methods!(user_model_class, UserModel, [
+        merge_cells/1, merge_cells_across/1, merge_cells_center/1, merge_cells_down/1,
+        unmerge_cells/1, get_merged_cells/1,
     ]);
 
     Ok(())
