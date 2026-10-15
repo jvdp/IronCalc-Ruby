@@ -10,7 +10,7 @@ use serde::Serialize;
 
 use xlsx::base::cell::CellValue;
 use xlsx::base::expressions::types::Area;
-use xlsx::base::types::{Color, SheetState, Style};
+use xlsx::base::types::{Color, SheetState, Style, StyleIncludes};
 use xlsx::base::Model as CoreModel;
 use xlsx::export::{save_to_icalc, save_to_xlsx, save_xlsx_to_writer};
 
@@ -732,6 +732,110 @@ impl Model {
         self.model
             .borrow_mut()
             .is_valid_defined_name(&name, scope, &formula)
+            .map_err(workbook_error)
+    }
+
+    // Named styles ----------------------------------------------------------
+
+    pub fn get_named_style_list(&self) -> Vec<String> {
+        self.model.borrow().get_named_style_list()
+    }
+
+    pub fn get_named_style(&self, name: String) -> Result<Value, magnus::Error> {
+        let style = self
+            .model
+            .borrow()
+            .get_named_style(&name)
+            .map_err(workbook_error)?;
+        to_ruby(&style)
+    }
+
+    pub fn get_named_style_includes(&self, name: String) -> Result<Value, magnus::Error> {
+        let includes = self
+            .model
+            .borrow()
+            .get_named_style_includes(&name)
+            .map_err(workbook_error)?;
+        to_ruby(&includes)
+    }
+
+    pub fn create_named_style(
+        &self,
+        name: String,
+        style: Value,
+        includes: Value,
+    ) -> Result<(), magnus::Error> {
+        let style: Style = from_ruby(style)?;
+        let includes: StyleIncludes = from_ruby(includes)?;
+        self.model
+            .borrow_mut()
+            .create_named_style(&name, &style, includes)
+            .map_err(workbook_error)
+    }
+
+    pub fn update_named_style(
+        &self,
+        name: String,
+        new_name: String,
+        style: Value,
+        includes: Value,
+    ) -> Result<(), magnus::Error> {
+        let style: Style = from_ruby(style)?;
+        let includes: StyleIncludes = from_ruby(includes)?;
+        self.model
+            .borrow_mut()
+            .update_named_style(&name, &new_name, &style, includes)
+            .map_err(workbook_error)
+    }
+
+    pub fn delete_named_style(&self, name: String) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .delete_named_style(&name)
+            .map_err(workbook_error)
+    }
+
+    pub fn set_cell_style_by_name(
+        &self,
+        sheet: u32,
+        row: i32,
+        column: i32,
+        style_name: String,
+    ) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .set_cell_style_by_name(sheet, row, column, &style_name)
+            .map_err(workbook_error)
+    }
+
+    pub fn set_sheet_style(&self, sheet: u32, style_name: String) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .set_sheet_style(sheet, &style_name)
+            .map_err(workbook_error)
+    }
+
+    pub fn set_sheet_row_style(
+        &self,
+        sheet: u32,
+        row: i32,
+        style_name: String,
+    ) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .set_sheet_row_style(sheet, row, &style_name)
+            .map_err(workbook_error)
+    }
+
+    pub fn set_sheet_column_style(
+        &self,
+        sheet: u32,
+        column: i32,
+        style_name: String,
+    ) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .set_sheet_column_style(sheet, column, &style_name)
             .map_err(workbook_error)
     }
 }

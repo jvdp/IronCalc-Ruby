@@ -5,6 +5,7 @@ use magnus::value::StaticSymbol;
 use magnus::{RArray, RString, Ruby, Value};
 
 use xlsx::base::expressions::types::Area;
+use xlsx::base::types::{Style, StyleIncludes};
 use xlsx::base::UserModel as CoreUserModel;
 use xlsx::export::{save_to_icalc, save_to_xlsx, save_xlsx_to_writer};
 
@@ -471,6 +472,70 @@ impl UserModel {
         self.model
             .borrow_mut()
             .is_valid_defined_name(&name, scope, &formula)
+            .map_err(workbook_error)
+    }
+
+    // Named styles ----------------------------------------------------------
+
+    pub fn get_named_style_list(&self) -> Vec<String> {
+        self.model.borrow().get_named_style_list()
+    }
+
+    pub fn get_named_style(&self, name: String) -> Result<Value, magnus::Error> {
+        let style = self
+            .model
+            .borrow()
+            .get_named_style(&name)
+            .map_err(workbook_error)?;
+        to_ruby(&style)
+    }
+
+    pub fn get_named_style_includes(&self, name: String) -> Result<Value, magnus::Error> {
+        let includes = self
+            .model
+            .borrow()
+            .get_named_style_includes(&name)
+            .map_err(workbook_error)?;
+        to_ruby(&includes)
+    }
+
+    pub fn get_builtin_named_styles(&self) -> Result<Value, magnus::Error> {
+        to_ruby(&self.model.borrow().get_builtin_named_styles())
+    }
+
+    pub fn create_named_style(
+        &self,
+        name: String,
+        style: Value,
+        includes: Value,
+    ) -> Result<(), magnus::Error> {
+        let style: Style = from_ruby(style)?;
+        let includes: StyleIncludes = from_ruby(includes)?;
+        self.model
+            .borrow_mut()
+            .create_named_style(&name, &style, includes)
+            .map_err(workbook_error)
+    }
+
+    pub fn update_named_style(
+        &self,
+        name: String,
+        new_name: String,
+        style: Value,
+        includes: Value,
+    ) -> Result<(), magnus::Error> {
+        let style: Style = from_ruby(style)?;
+        let includes: StyleIncludes = from_ruby(includes)?;
+        self.model
+            .borrow_mut()
+            .update_named_style(&name, &new_name, &style, includes)
+            .map_err(workbook_error)
+    }
+
+    pub fn delete_named_style(&self, name: String) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .delete_named_style(&name)
             .map_err(workbook_error)
     }
 }
