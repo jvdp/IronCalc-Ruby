@@ -764,6 +764,18 @@ module IronCalc
     #   +{ArrayAnchor: [width, height]}+,
     #   +{ArrayChild: [anchor_row, anchor_column, width, height]}+, and
     #   likewise +:DynamicAnchor+ / +:DynamicChild+ for a spill.
+    #   @example The area to clear to remove the formula a cell shows
+    #     area = case user_model.get_cell_array_structure(sheet, row, column)
+    #     in "SingleCell" | {DynamicAnchor: _}
+    #       {sheet: sheet, row: row, column: column, width: 1, height: 1}
+    #     in {DynamicChild: [anchor_row, anchor_column, _, _]}
+    #       {sheet: sheet, row: anchor_row, column: anchor_column, width: 1, height: 1}
+    #     in {ArrayAnchor: [width, height]}
+    #       {sheet: sheet, row: row, column: column, width: width, height: height}
+    #     in {ArrayChild: [anchor_row, anchor_column, width, height]}
+    #       {sheet: sheet, row: anchor_row, column: anchor_column, width: width, height: height}
+    #     end
+    #     user_model.range_clear_contents(area)
     #   @param sheet [Integer]
     #   @param row [Integer]
     #   @param column [Integer]
