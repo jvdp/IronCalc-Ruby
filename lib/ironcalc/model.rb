@@ -14,7 +14,7 @@ module IronCalc
       get_defined_name_list
     end
 
-    # Whether {#new_defined_name} would succeed for these arguments: the boolean
+    # Whether `new_defined_name` would succeed for these arguments: the boolean
     # form of `is_valid_defined_name`, which raises with the reason instead.
     #
     # @param name [String]
