@@ -31,7 +31,7 @@ Gem::Specification.new do |spec|
   spec.require_path = "lib"
   spec.extensions = ["ext/ironcalc/extconf.rb"]
 
-  spec.required_ruby_version = ">= 3.0"
+  spec.required_ruby_version = ">= 3.3"
 
   # Builds the Rust extension at install time. Precompiled platform gems ship
   # the .so and clear `spec.extensions`, so this never runs for those users.
