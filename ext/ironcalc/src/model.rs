@@ -4,13 +4,14 @@ use std::io::Cursor;
 use magnus::value::StaticSymbol;
 use magnus::error::ErrorType;
 use magnus::value::ReprValue;
-use magnus::{IntoValue, RArray, RString, Ruby, TryConvert, Value};
+use magnus::{IntoValue, RArray, RHash, RString, Ruby, TryConvert, Value};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 use xlsx::base::cell::CellValue;
 use xlsx::base::expressions::types::Area;
-use xlsx::base::types::{Color, SheetState, Style};
+use xlsx::base::links::CellLinkView;
+use xlsx::base::types::{Color, Link, SheetState, Style};
 use xlsx::base::Model as CoreModel;
 use xlsx::export::{save_to_icalc, save_to_xlsx, save_xlsx_to_writer};
 
@@ -94,6 +95,29 @@ pub(crate) fn defined_names_to_ruby(
         let _ = array.push(hash);
     }
     array
+}
+
+/// Not `to_ruby`: `CellLinkView` flattens its `Link`, which makes serde emit
+/// it as a map, keyed by Strings.
+pub(crate) fn links_list_to_ruby(
+    ruby: &Ruby,
+    links: Vec<CellLinkView>,
+) -> Result<RArray, magnus::Error> {
+    let array = ruby.ary_new();
+    let (row_key, column_key, dynamic_key) = (
+        ruby.sym_new("row"),
+        ruby.sym_new("column"),
+        ruby.sym_new("dynamic"),
+    );
+    for view in links {
+        let hash = ruby.hash_new();
+        hash.aset(row_key, view.row)?;
+        hash.aset(column_key, view.column)?;
+        hash.aset(dynamic_key, view.dynamic)?;
+        hash.update(RHash::try_convert(to_ruby(&view.link)?)?)?;
+        array.push(hash)?;
+    }
+    Ok(array)
 }
 
 fn parse_sheet_state(state: &str) -> Result<SheetState, magnus::Error> {
@@ -678,6 +702,56 @@ impl Model {
             dimension.min_column,
             dimension.max_column,
         ))
+    }
+
+    // Links -----------------------------------------------------------------
+
+    pub fn get_cell_link(&self, sheet: u32, row: i32, column: i32) -> Result<Value, magnus::Error> {
+        let link = self
+            .model
+            .borrow()
+            .get_cell_link(sheet, row, column)
+            .map_err(workbook_error)?;
+        to_ruby(&link)
+    }
+
+    pub fn set_cell_link(
+        &self,
+        sheet: u32,
+        row: i32,
+        column: i32,
+        link: Value,
+    ) -> Result<(), magnus::Error> {
+        let link: Link = from_ruby(link)?;
+        self.model
+            .borrow_mut()
+            .set_cell_link(sheet, row, column, link)
+            .map_err(workbook_error)
+    }
+
+    pub fn delete_cell_link(&self, sheet: u32, row: i32, column: i32) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .delete_cell_link(sheet, row, column)
+            .map_err(workbook_error)
+    }
+
+    pub fn get_links(&self, sheet: u32) -> Result<Value, magnus::Error> {
+        let model = self.model.borrow();
+        to_ruby(model.get_links(sheet).map_err(workbook_error)?)
+    }
+
+    pub fn get_links_list(
+        ruby: &Ruby,
+        rb_self: &Self,
+        sheet: u32,
+    ) -> Result<RArray, magnus::Error> {
+        let links = rb_self
+            .model
+            .borrow()
+            .get_links_list(sheet)
+            .map_err(workbook_error)?;
+        links_list_to_ruby(ruby, links)
     }
 
     // Defined names ---------------------------------------------------------

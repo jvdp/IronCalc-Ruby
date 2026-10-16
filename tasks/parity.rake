@@ -79,7 +79,6 @@ module Parity
     get_max_evaluation_stack set_max_evaluation_stack
     merge_cells merge_cells_across merge_cells_center merge_cells_down
     unmerge_cells get_merged_cells get_merge_structure
-    get_cell_link set_cell_link delete_cell_link get_links get_links_list
   ].freeze
 
   module_function

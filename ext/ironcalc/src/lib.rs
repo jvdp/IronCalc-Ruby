@@ -293,6 +293,10 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
         get_defined_name_list/0, new_defined_name/3, update_defined_name/5,
         delete_defined_name/2, is_valid_defined_name/3,
     ]);
+    // Links
+    define_methods!(model_class, Model, [
+        get_cell_link/3, set_cell_link/4, delete_cell_link/3, get_links/1, get_links_list/1,
+    ]);
     // User API: IronCalc::UserModel
     let user_model_class = module.define_class("UserModel", ruby.class_object())?;
     // Persistence and collaboration (diff queue)
@@ -335,6 +339,10 @@ fn init(ruby: &Ruby) -> Result<(), Error> {
     define_methods!(user_model_class, UserModel, [
         get_defined_name_list/0, new_defined_name/3, update_defined_name/5,
         delete_defined_name/2, is_valid_defined_name/3,
+    ]);
+    // Links
+    define_methods!(user_model_class, UserModel, [
+        get_cell_link/3, set_cell_link/5, delete_cell_link/3, get_links/1, get_links_list/1,
     ]);
 
     Ok(())

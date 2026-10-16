@@ -5,12 +5,14 @@ use magnus::value::StaticSymbol;
 use magnus::{RArray, RString, Ruby, Value};
 
 use xlsx::base::expressions::types::Area;
+use xlsx::base::types::Link;
 use xlsx::base::UserModel as CoreUserModel;
 use xlsx::export::{save_to_icalc, save_to_xlsx, save_xlsx_to_writer};
 
 use crate::error::workbook_error;
 use crate::model::{
-    cell_type_to_str, color_to_ruby, defined_names_to_ruby, from_ruby, parse_color, to_ruby,
+    cell_type_to_str, color_to_ruby, defined_names_to_ruby, from_ruby, links_list_to_ruby,
+    parse_color, to_ruby,
 };
 
 /// Shaped after the engine's WebAssembly binding rather than the Python one.
@@ -392,6 +394,57 @@ impl UserModel {
             dimension.min_column,
             dimension.max_column,
         ))
+    }
+
+    // Links -----------------------------------------------------------------
+
+    pub fn get_cell_link(&self, sheet: u32, row: i32, column: i32) -> Result<Value, magnus::Error> {
+        let link = self
+            .model
+            .borrow()
+            .get_cell_link(sheet, row, column)
+            .map_err(workbook_error)?;
+        to_ruby(&link)
+    }
+
+    pub fn set_cell_link(
+        &self,
+        sheet: u32,
+        row: i32,
+        column: i32,
+        link: Value,
+        label: Option<String>,
+    ) -> Result<(), magnus::Error> {
+        let link: Link = from_ruby(link)?;
+        self.model
+            .borrow_mut()
+            .set_cell_link(sheet, row, column, link, label.as_deref())
+            .map_err(workbook_error)
+    }
+
+    pub fn delete_cell_link(&self, sheet: u32, row: i32, column: i32) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .delete_cell_link(sheet, row, column)
+            .map_err(workbook_error)
+    }
+
+    pub fn get_links(&self, sheet: u32) -> Result<Value, magnus::Error> {
+        let model = self.model.borrow();
+        to_ruby(model.get_links(sheet).map_err(workbook_error)?)
+    }
+
+    pub fn get_links_list(
+        ruby: &Ruby,
+        rb_self: &Self,
+        sheet: u32,
+    ) -> Result<RArray, magnus::Error> {
+        let links = rb_self
+            .model
+            .borrow()
+            .get_links_list(sheet)
+            .map_err(workbook_error)?;
+        links_list_to_ruby(ruby, links)
     }
 
     // Defined names ---------------------------------------------------------
