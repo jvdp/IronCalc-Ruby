@@ -552,6 +552,13 @@ module IronCalc
     #   @param column [Integer]
     #   @return [Hash, nil] nil if the cell has no link
     #   @raise [IronCalc::Error] if the sheet, row or column is out of range
+    #   @example Render a cell as HTML, following its link
+    #     text = model.get_formatted_cell_value(0, 1, 1)
+    #     case model.get_cell_link(0, 1, 1)
+    #     in nil then text
+    #     in {type: "External", target:} then %(<a href="#{target}">#{text}</a>)
+    #     in {type: "Internal", location:} then "#{text} (see #{location})"
+    #     end
 
     # @!method set_cell_link(sheet, row, column, link)
     #   Attaches a link to a cell, replacing any existing one.
@@ -1006,6 +1013,13 @@ module IronCalc
     #   @param column [Integer]
     #   @return [Hash, nil] nil if the cell has no link
     #   @raise [IronCalc::Error] if the sheet, row or column is out of range
+    #   @example Render a cell as HTML, following its link
+    #     text = model.get_formatted_cell_value(0, 1, 1)
+    #     case model.get_cell_link(0, 1, 1)
+    #     in nil then text
+    #     in {type: "External", target:} then %(<a href="#{target}">#{text}</a>)
+    #     in {type: "Internal", location:} then "#{text} (see #{location})"
+    #     end
 
     # @!method set_cell_link(sheet, row, column, link, label)
     #   Attaches a link to a cell, replacing any existing one. One undo step.
