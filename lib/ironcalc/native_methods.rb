@@ -551,6 +551,36 @@ module IronCalc
     #   @param sheet [Integer]
     #   @return [Array<Hash>]
     #   @raise [IronCalc::Error]
+    #   @example Match rules by type
+    #     model.get_conditional_formatting_list(0).each do |cf|
+    #       case cf
+    #       in {range:, cf_rule: {type: "CellIs", operator:, formula:}}
+    #         puts "#{range}: #{operator} #{formula}"
+    #       in {range:, cf_rule: {type: "Top10" | "Bottom10" => type, rank:, percent:}}
+    #         puts "#{range}: #{type} #{rank}#{"%" if percent}"
+    #       in {range:, cf_rule: {type:}}
+    #         puts "#{range}: #{type}"
+    #       end
+    #     end
+    #   @example Read color scale and data bar thresholds
+    #     describe = lambda do |cfvo|
+    #       case cfvo
+    #       in "Min" | "Max" then cfvo.downcase
+    #       in {Number: n} then n.to_s
+    #       in {Percent: p} then "#{p}%"
+    #       in {Percentile: p} then "percentile #{p}"
+    #       in {Formula: f} then f
+    #       end
+    #     end
+    #     model.get_conditional_formatting_list(0).each do |cf|
+    #       case cf[:cf_rule]
+    #       in {type: "ColorScale", thresholds:}
+    #         p thresholds.map { |t| describe.call(t[:cfvo]) }
+    #       in {type: "DataBar", min:, max:}
+    #         p [min, max].map { |v| v ? describe.call(v) : "automatic" }
+    #       else
+    #       end
+    #     end
 
     # @!method get_dxf_for_conditional_formatting(sheet, index)
     #   The format a rule applies, as passed in its +:format+, or nil for a rule
@@ -562,17 +592,29 @@ module IronCalc
 
     # @!method add_conditional_formatting(sheet, range, rule)
     #   Adds a rule with a higher priority than any other on the sheet. +rule+
-    #   is a Hash tagged by +:type+, e.g.
-    #     {type: "CellIs", operator: "GreaterThan", formula: "4", formula2: nil,
-    #      format: {font: {b: true, color: "#FF0000"}}, stop_if_true: false}
-    #   +format+ is a partial style: +font+, +fill+, +border+, +num_fmt+ and
-    #   +alignment+ may each be left out. Every other key is required; pass nil
-    #   for an optional one. Rules without a format take thresholds, whose
-    #   values are +"Min"+, +"Max"+ or a one-entry Hash such as
-    #   +{"Number" => 10}+, +{"Percent" => 50}+ or +{"Formula" => "=$B$1"}+.
+    #   is a Hash tagged by +:type+. +format+ is a partial style: +font+,
+    #   +fill+, +border+, +num_fmt+ and +alignment+ may each be left out.
+    #   Every other key is required; pass nil for an optional one. Rules
+    #   without a format take thresholds, whose values are +"Min"+, +"Max"+ or
+    #   a one-entry Hash: +{Number: 10}+, +{Percent: 50}+, +{Percentile: 50}+
+    #   or +{Formula: "=$B$1"}+.
     #   @param sheet [Integer]
     #   @param range [String] space-separated A1 ranges, e.g. +"A1:C3 E5"+
     #   @param rule [Hash]
+    #   @example Highlight values above 100, and color-scale another range
+    #     model.add_conditional_formatting(0, "A1:A10", {
+    #       type: "CellIs", operator: "GreaterThan", formula: "100", formula2: nil,
+    #       format: {font: {b: true, color: "#9C0006"}, fill: {color: "#FFC7CE"}},
+    #       stop_if_true: false
+    #     })
+    #     model.add_conditional_formatting(0, "B1:B10", {
+    #       type: "ColorScale",
+    #       thresholds: [
+    #         {cfvo: "Min", color: "#F8696B"},
+    #         {cfvo: {Percentile: 50}, color: "#FFEB84"},
+    #         {cfvo: "Max", color: "#63BE7B"}
+    #       ]
+    #     })
     #   @return [Integer] the new rule's priority
     #   @raise [IronCalc::Error] if the range or a formula does not parse, or the
     #     rule is missing a key or has an unknown +:type+
