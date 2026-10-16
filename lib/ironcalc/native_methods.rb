@@ -495,7 +495,6 @@ module IronCalc
     #   @return [Array(Integer, Integer, Integer, Integer)]
     #   @raise [IronCalc::Error]
 
-    # Without a real def, the @!method stubs above leak to the IronCalc module
     # @!method get_defined_name_list
     #   Defined names as one Hash per name, with symbol keys +:name+, +:scope+
     #   (0-based sheet index, or nil for workbook scope) and +:formula+.
@@ -693,6 +692,7 @@ module IronCalc
     #   @return [Hash]
     #   @raise [IronCalc::Error]
 
+    # Without a real def, the @!method stubs above leak to the IronCalc module
     # (yardoc bug lsegal/yard#1207). Doc-only file, never loaded at runtime.
     # @!visibility private
     def __yard_anchor__
