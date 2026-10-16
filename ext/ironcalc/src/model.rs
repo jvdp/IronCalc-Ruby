@@ -4,7 +4,8 @@ use std::io::Cursor;
 use magnus::value::StaticSymbol;
 use magnus::error::ErrorType;
 use magnus::value::ReprValue;
-use magnus::{IntoValue, RArray, RString, Ruby, TryConvert, Value};
+use magnus::r_hash::ForEach;
+use magnus::{IntoValue, RArray, RHash, RString, Ruby, TryConvert, Value};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
@@ -19,7 +20,36 @@ use crate::error::workbook_error;
 /// Engine structs cross the boundary through serde: a Ruby Hash keyed by the
 /// struct's field names (Symbols out; Symbols or Strings in).
 pub(crate) fn to_ruby<T: Serialize>(value: &T) -> Result<Value, magnus::Error> {
-    serde_magnus::serialize(&ruby(), value)
+    let ruby = ruby();
+    symbolize_keys(&ruby, serde_magnus::serialize(&ruby, value)?)
+}
+
+// serde_magnus keys an enum variant that carries data by its name as a String
+// (`{"Anchor" => {...}}`), unlike struct fields; Symbols make it matchable with
+// `case`/`in`.
+fn symbolize_keys(ruby: &Ruby, value: Value) -> Result<Value, magnus::Error> {
+    if let Some(hash) = RHash::from_value(value) {
+        let mut pairs = Vec::with_capacity(hash.len());
+        hash.foreach(|key: Value, value: Value| {
+            pairs.push((key, value));
+            Ok(ForEach::Continue)
+        })?;
+        let symbolized = ruby.hash_new_capa(pairs.len());
+        for (key, value) in pairs {
+            let key = match RString::from_value(key) {
+                Some(name) => ruby.to_symbol(name.to_string()?).as_value(),
+                None => key,
+            };
+            symbolized.aset(key, symbolize_keys(ruby, value)?)?;
+        }
+        return Ok(symbolized.as_value());
+    }
+    if let Some(array) = RArray::from_value(value) {
+        for index in 0..array.len() as isize {
+            array.store(index, symbolize_keys(ruby, array.entry(index)?)?)?;
+        }
+    }
+    Ok(value)
 }
 
 pub(crate) fn from_ruby<T: DeserializeOwned>(value: Value) -> Result<T, magnus::Error> {
@@ -238,6 +268,21 @@ impl Model {
         self.model
             .borrow_mut()
             .update_cell_with_formula(sheet, row, column, formula)
+            .map_err(workbook_error)
+    }
+
+    pub fn set_user_array_formula(
+        &self,
+        sheet: u32,
+        row: i32,
+        column: i32,
+        width: i32,
+        height: i32,
+        value: String,
+    ) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .set_user_array_formula(sheet, row, column, width, height, &value)
             .map_err(workbook_error)
     }
 

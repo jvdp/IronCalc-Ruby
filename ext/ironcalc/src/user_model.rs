@@ -150,6 +150,37 @@ impl UserModel {
             .map_err(workbook_error)
     }
 
+    // Array formulas --------------------------------------------------------
+
+    pub fn set_user_array_formula(
+        &self,
+        sheet: u32,
+        row: i32,
+        column: i32,
+        width: i32,
+        height: i32,
+        formula: String,
+    ) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .set_user_array_formula(sheet, row, column, width, height, &formula)
+            .map_err(workbook_error)
+    }
+
+    pub fn get_cell_array_structure(
+        &self,
+        sheet: u32,
+        row: i32,
+        column: i32,
+    ) -> Result<Value, magnus::Error> {
+        let structure = self
+            .model
+            .borrow()
+            .get_cell_array_structure(sheet, row, column)
+            .map_err(workbook_error)?;
+        to_ruby(&structure)
+    }
+
     // Styles ----------------------------------------------------------------
     //
     // Per-property only; there is no whole-Style setter to mirror `Model`'s.
