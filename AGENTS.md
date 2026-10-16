@@ -30,7 +30,7 @@ The upstream **Python bindings** are a useful cross-check — we should never ex
 
 ## Build & test
 
-Needs Ruby 3.0+ with development headers, Bundler, and a Rust toolchain.
+Needs Ruby 3.3+ with development headers, Bundler, and a Rust toolchain.
 
 ```sh
 bundle install
