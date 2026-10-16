@@ -4,11 +4,13 @@ use std::io::Cursor;
 use magnus::value::StaticSymbol;
 use magnus::error::ErrorType;
 use magnus::value::ReprValue;
-use magnus::{IntoValue, RArray, RString, Ruby, TryConvert, Value};
+use magnus::r_hash::ForEach;
+use magnus::{IntoValue, RArray, RHash, RString, Ruby, TryConvert, Value};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 use xlsx::base::cell::CellValue;
+use xlsx::base::cf_types::CfRuleInput;
 use xlsx::base::expressions::types::Area;
 use xlsx::base::types::{Color, SheetState, Style};
 use xlsx::base::Model as CoreModel;
@@ -19,7 +21,36 @@ use crate::error::workbook_error;
 /// Engine structs cross the boundary through serde: a Ruby Hash keyed by the
 /// struct's field names (Symbols out; Symbols or Strings in).
 pub(crate) fn to_ruby<T: Serialize>(value: &T) -> Result<Value, magnus::Error> {
-    serde_magnus::serialize(&ruby(), value)
+    let ruby = ruby();
+    symbolize_keys(&ruby, serde_magnus::serialize(&ruby, value)?)
+}
+
+// serde_magnus keys an enum variant that carries data by its name as a String
+// (`{"Anchor" => {...}}`), unlike struct fields; Symbols make it matchable with
+// `case`/`in`.
+fn symbolize_keys(ruby: &Ruby, value: Value) -> Result<Value, magnus::Error> {
+    if let Some(hash) = RHash::from_value(value) {
+        let mut pairs = Vec::with_capacity(hash.len());
+        hash.foreach(|key: Value, value: Value| {
+            pairs.push((key, value));
+            Ok(ForEach::Continue)
+        })?;
+        let symbolized = ruby.hash_new_capa(pairs.len());
+        for (key, value) in pairs {
+            let key = match RString::from_value(key) {
+                Some(name) => ruby.to_symbol(name.to_string()?).as_value(),
+                None => key,
+            };
+            symbolized.aset(key, symbolize_keys(ruby, value)?)?;
+        }
+        return Ok(symbolized.as_value());
+    }
+    if let Some(array) = RArray::from_value(value) {
+        for index in 0..array.len() as isize {
+            array.store(index, symbolize_keys(ruby, array.entry(index)?)?)?;
+        }
+    }
+    Ok(value)
 }
 
 pub(crate) fn from_ruby<T: DeserializeOwned>(value: Value) -> Result<T, magnus::Error> {
@@ -733,5 +764,111 @@ impl Model {
             .borrow_mut()
             .is_valid_defined_name(&name, scope, &formula)
             .map_err(workbook_error)
+    }
+
+    // Conditional formatting ------------------------------------------------
+
+    pub fn get_conditional_formatting_list(&self, sheet: u32) -> Result<Value, magnus::Error> {
+        let list = self
+            .model
+            .borrow()
+            .get_conditional_formatting_list(sheet)
+            .map_err(workbook_error)?;
+        to_ruby(&list)
+    }
+
+    pub fn get_dxf_for_conditional_formatting(
+        &self,
+        sheet: u32,
+        index: usize,
+    ) -> Result<Value, magnus::Error> {
+        let dxf = self
+            .model
+            .borrow()
+            .get_dxf_for_conditional_formatting(sheet, index)
+            .map_err(workbook_error)?;
+        to_ruby(&dxf)
+    }
+
+    pub fn add_conditional_formatting(
+        &self,
+        sheet: u32,
+        range: String,
+        rule: Value,
+    ) -> Result<u32, magnus::Error> {
+        let rule: CfRuleInput = from_ruby(rule)?;
+        self.model
+            .borrow_mut()
+            .add_conditional_formatting(sheet, &range, rule)
+            .map_err(workbook_error)
+    }
+
+    pub fn delete_conditional_formatting(
+        &self,
+        sheet: u32,
+        index: usize,
+    ) -> Result<Value, magnus::Error> {
+        let removed = self
+            .model
+            .borrow_mut()
+            .delete_conditional_formatting(sheet, index)
+            .map_err(workbook_error)?;
+        to_ruby(&removed)
+    }
+
+    pub fn update_conditional_formatting(
+        &self,
+        sheet: u32,
+        index: usize,
+        new_range: String,
+        new_rule: Value,
+    ) -> Result<Value, magnus::Error> {
+        let new_rule: CfRuleInput = from_ruby(new_rule)?;
+        let old = self
+            .model
+            .borrow_mut()
+            .update_conditional_formatting(sheet, index, &new_range, new_rule)
+            .map_err(workbook_error)?;
+        to_ruby(&old)
+    }
+
+    pub fn raise_conditional_formatting_priority(
+        &self,
+        sheet: u32,
+        index: usize,
+    ) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .raise_conditional_formatting_priority(sheet, index)
+            .map_err(workbook_error)
+    }
+
+    pub fn lower_conditional_formatting_priority(
+        &self,
+        sheet: u32,
+        index: usize,
+    ) -> Result<(), magnus::Error> {
+        self.model
+            .borrow_mut()
+            .lower_conditional_formatting_priority(sheet, index)
+            .map_err(workbook_error)
+    }
+
+    pub fn evaluate_conditional_formatting(&self) {
+        self.model.borrow_mut().evaluate_conditional_formatting();
+    }
+
+    pub fn get_extended_style_for_cell(
+        &self,
+        sheet: u32,
+        row: i32,
+        column: i32,
+    ) -> Result<Value, magnus::Error> {
+        let style = self
+            .model
+            .borrow()
+            .get_extended_style_for_cell(sheet, row, column)
+            .map_err(workbook_error)?;
+        to_ruby(&style)
     }
 }

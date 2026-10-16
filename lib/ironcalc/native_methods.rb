@@ -541,6 +541,134 @@ module IronCalc
     #   @raise [IronCalc::Error] with the reason, e.g. the name is already taken
     #     in that scope
 
+    # @!method get_conditional_formatting_list(sheet)
+    #   The sheet's conditional formatting rules, highest priority first, each
+    #   as +{index:, range:, cf_rule:, priority:}+. +index+ is the rule's
+    #   storage position, which the other conditional formatting methods take;
+    #   it is not its position in this list. A higher +priority+ wins.
+    #   +cf_rule+ is like the rule passed to {#add_conditional_formatting}, with
+    #   a +:dxf_id+ in place of +:format+.
+    #   @param sheet [Integer]
+    #   @return [Array<Hash>]
+    #   @raise [IronCalc::Error]
+    #   @example Match rules by type
+    #     model.get_conditional_formatting_list(0).each do |cf|
+    #       case cf
+    #       in {range:, cf_rule: {type: "CellIs", operator:, formula:}}
+    #         puts "#{range}: #{operator} #{formula}"
+    #       in {range:, cf_rule: {type: "Top10" | "Bottom10" => type, rank:, percent:}}
+    #         puts "#{range}: #{type} #{rank}#{"%" if percent}"
+    #       in {range:, cf_rule: {type:}}
+    #         puts "#{range}: #{type}"
+    #       end
+    #     end
+    #   @example Read color scale and data bar thresholds
+    #     describe = lambda do |cfvo|
+    #       case cfvo
+    #       in "Min" | "Max" then cfvo.downcase
+    #       in {Number: n} then n.to_s
+    #       in {Percent: p} then "#{p}%"
+    #       in {Percentile: p} then "percentile #{p}"
+    #       in {Formula: f} then f
+    #       end
+    #     end
+    #     model.get_conditional_formatting_list(0).each do |cf|
+    #       case cf[:cf_rule]
+    #       in {type: "ColorScale", thresholds:}
+    #         p thresholds.map { |t| describe.call(t[:cfvo]) }
+    #       in {type: "DataBar", min:, max:}
+    #         p [min, max].map { |v| v ? describe.call(v) : "automatic" }
+    #       else
+    #       end
+    #     end
+
+    # @!method get_dxf_for_conditional_formatting(sheet, index)
+    #   The format a rule applies, as passed in its +:format+, or nil for a rule
+    #   that takes none (+ColorScale+, +DataBar+, +IconSet+, +IconRating+).
+    #   @param sheet [Integer]
+    #   @param index [Integer] the rule's +:index+
+    #   @return [Hash, nil]
+    #   @raise [IronCalc::Error] if there is no rule at +index+
+
+    # @!method add_conditional_formatting(sheet, range, rule)
+    #   Adds a rule with a higher priority than any other on the sheet. +rule+
+    #   is a Hash tagged by +:type+. +format+ is a partial style: +font+,
+    #   +fill+, +border+, +num_fmt+ and +alignment+ may each be left out.
+    #   Every other key is required; pass nil for an optional one. Rules
+    #   without a format take thresholds, whose values are +"Min"+, +"Max"+ or
+    #   a one-entry Hash: +{Number: 10}+, +{Percent: 50}+, +{Percentile: 50}+
+    #   or +{Formula: "=$B$1"}+.
+    #   @param sheet [Integer]
+    #   @param range [String] space-separated A1 ranges, e.g. +"A1:C3 E5"+
+    #   @param rule [Hash]
+    #   @example Highlight values above 100, and color-scale another range
+    #     model.add_conditional_formatting(0, "A1:A10", {
+    #       type: "CellIs", operator: "GreaterThan", formula: "100", formula2: nil,
+    #       format: {font: {b: true, color: "#9C0006"}, fill: {color: "#FFC7CE"}},
+    #       stop_if_true: false
+    #     })
+    #     model.add_conditional_formatting(0, "B1:B10", {
+    #       type: "ColorScale",
+    #       thresholds: [
+    #         {cfvo: "Min", color: "#F8696B"},
+    #         {cfvo: {Percentile: 50}, color: "#FFEB84"},
+    #         {cfvo: "Max", color: "#63BE7B"}
+    #       ]
+    #     })
+    #   @return [Integer] the new rule's priority
+    #   @raise [IronCalc::Error] if the range or a formula does not parse, or the
+    #     rule is missing a key or has an unknown +:type+
+
+    # @!method update_conditional_formatting(sheet, index, new_range, new_rule)
+    #   Replaces a rule's range and rule, keeping its priority.
+    #   @param sheet [Integer]
+    #   @param index [Integer] the rule's +:index+
+    #   @param new_range [String]
+    #   @param new_rule [Hash] as for {#add_conditional_formatting}
+    #   @return [Hash] the previous entry, as +{range:, cf_rule:, priority:}+
+    #   @raise [IronCalc::Error] as {#add_conditional_formatting} does, and if
+    #     there is no rule at +index+
+
+    # @!method delete_conditional_formatting(sheet, index)
+    #   Removes a rule. The +:index+ of every later rule drops by one.
+    #   @param sheet [Integer]
+    #   @param index [Integer] the rule's +:index+
+    #   @return [Hash] the removed entry, as +{range:, cf_rule:, priority:}+
+    #   @raise [IronCalc::Error] if there is no rule at +index+
+
+    # @!method raise_conditional_formatting_priority(sheet, index)
+    #   Swaps a rule's priority with the next-higher one. Does nothing to the
+    #   highest-priority rule.
+    #   @param sheet [Integer]
+    #   @param index [Integer] the rule's +:index+
+    #   @return [void]
+    #   @raise [IronCalc::Error] if there is no rule at +index+
+
+    # @!method lower_conditional_formatting_priority(sheet, index)
+    #   Swaps a rule's priority with the next-lower one. Does nothing to the
+    #   lowest-priority rule.
+    #   @param sheet [Integer]
+    #   @param index [Integer] the rule's +:index+
+    #   @return [void]
+    #   @raise [IronCalc::Error] if there is no rule at +index+
+
+    # @!method evaluate_conditional_formatting
+    #   Re-applies the conditional formatting rules to the cell values as they
+    #   stand, without recalculating formulas. {#evaluate} does this too.
+    #   @return [void]
+
+    # @!method get_extended_style_for_cell(sheet, row, column)
+    #   The cell's style with conditional formatting applied, as of the last
+    #   {#evaluate} or {#evaluate_conditional_formatting}:
+    #   +{style:, icon:, data_bar:, rating:}+. +:style+ is a style Hash like
+    #   {#get_style_for_cell}'s; the other three are nil unless an +IconSet+,
+    #   +DataBar+ or +IconRating+ rule applies to the cell.
+    #   @param sheet [Integer]
+    #   @param row [Integer]
+    #   @param column [Integer]
+    #   @return [Hash]
+    #   @raise [IronCalc::Error]
+
     # @!method range_clear_all(area)
     #   Clears the contents *and* style of every cell in a range, removing the
     #   cells entirely. Compare +range_clear_contents+, which keeps the style.
@@ -947,6 +1075,75 @@ module IronCalc
     #     +get_worksheets_properties+), or nil for workbook scope
     #   @raise [IronCalc::Error] with the reason, e.g. the name is already taken
     #     in that scope
+
+    # @!method get_conditional_formatting_list(sheet)
+    #   The sheet's conditional formatting rules, like
+    #   {Model#get_conditional_formatting_list}.
+    #   @param sheet [Integer]
+    #   @return [Array<Hash>]
+    #   @raise [IronCalc::Error]
+
+    # @!method get_dxf_for_conditional_formatting(sheet, index)
+    #   The format a rule applies, or nil, like
+    #   {Model#get_dxf_for_conditional_formatting}.
+    #   @param sheet [Integer]
+    #   @param index [Integer] the rule's +:index+
+    #   @return [Hash, nil]
+    #   @raise [IronCalc::Error] if there is no rule at +index+
+
+    # @!method add_conditional_formatting(sheet, range, rule)
+    #   Adds a rule with a higher priority than any other on the sheet. +rule+
+    #   is a Hash as described at {Model#add_conditional_formatting}. Undoable.
+    #   @param sheet [Integer]
+    #   @param range [String] space-separated A1 ranges, e.g. +"A1:C3 E5"+
+    #   @param rule [Hash]
+    #   @return [void]
+    #   @raise [IronCalc::Error] if the range or a formula does not parse, or the
+    #     rule is missing a key or has an unknown +:type+
+
+    # @!method update_conditional_formatting(sheet, index, new_range, new_rule)
+    #   Replaces a rule's range and rule, keeping its priority. Undoable.
+    #   @param sheet [Integer]
+    #   @param index [Integer] the rule's +:index+
+    #   @param new_range [String]
+    #   @param new_rule [Hash] as for {#add_conditional_formatting}
+    #   @return [void]
+    #   @raise [IronCalc::Error] as {#add_conditional_formatting} does, and if
+    #     there is no rule at +index+
+
+    # @!method delete_conditional_formatting(sheet, index)
+    #   Removes a rule. The +:index+ of every later rule drops by one. Undoable.
+    #   @param sheet [Integer]
+    #   @param index [Integer] the rule's +:index+
+    #   @return [void]
+    #   @raise [IronCalc::Error] if there is no rule at +index+
+
+    # @!method raise_conditional_formatting_priority(sheet, index)
+    #   Swaps a rule's priority with the next-higher one. Does nothing to the
+    #   highest-priority rule. Undoable.
+    #   @param sheet [Integer]
+    #   @param index [Integer] the rule's +:index+
+    #   @return [void]
+    #   @raise [IronCalc::Error] if there is no rule at +index+
+
+    # @!method lower_conditional_formatting_priority(sheet, index)
+    #   Swaps a rule's priority with the next-lower one. Does nothing to the
+    #   lowest-priority rule. Undoable.
+    #   @param sheet [Integer]
+    #   @param index [Integer] the rule's +:index+
+    #   @return [void]
+    #   @raise [IronCalc::Error] if there is no rule at +index+
+
+    # @!method get_extended_cell_style(sheet, row, column)
+    #   The cell's style with conditional formatting applied:
+    #   +{style:, icon:, data_bar:, rating:}+. +:style+ is a style Hash like
+    #   {#get_cell_style}'s; the other three are nil unless an +IconSet+,
+    #   +DataBar+ or +IconRating+ rule applies to the cell.
+    #   @param sheet [Integer]
+    #   @param row [Integer]
+    #   @param column [Integer]
+    #   @return [Hash]
+    #   @raise [IronCalc::Error]
 
     # @!method range_clear_all(range)
     #   Clears the contents *and* style of every cell in a range. Undoable.

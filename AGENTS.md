@@ -59,6 +59,7 @@ bundle exec ruby -Itest test/surface_test.rb -n test_NAME
 - `styles_test.rb` — row/column default styles and `copy_cell_style`.
 - `sheets_test.rb` — `insert_sheet` positioning and `set_sheet_state` visibility.
 - `defined_names_test.rb` — defined names on both APIs, including xlsx and icalc round-trips and undo coverage.
+- `conditional_formatting_test.rb` — conditional formatting rules on both APIs, the extended style they produce, undo and xlsx round trip.
 - `utils_test.rb` — the module-level utility functions.
 - `calc_tests_test.rb` — formula-evaluation regression guard: one test per `calc_tests/**/*.xlsx` fixture, loaded once unevaluated (Excel's cached values) vs once evaluated (IronCalc's recompute), compared cell-by-cell with the engine's relative epsilon (and per-file `METADATA!A1` epsilon/locale overrides, read as cell *content* — the formatted value shows `#VALUE!`). This re-validates the *engine* through the binding on every dependency bump.
 
