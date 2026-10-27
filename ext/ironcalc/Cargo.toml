@@ -14,4 +14,4 @@ serde_magnus = "0.11"
 bitcode = "0.6.8"
 # The IronCalc engine, published on crates.io as `ironcalc`. Renamed to `xlsx`
 # here so the source can refer to `xlsx::base`, `xlsx::import`, `xlsx::export`.
-xlsx = { package = "ironcalc", version = "0.9.0" }
+xlsx = { package = "ironcalc", version = "0.9.1" }
