@@ -4,7 +4,7 @@ Guidance for coding agents (and humans) working in this repository.
 
 ## What this is
 
-Ruby bindings for the **IronCalc** spreadsheet engine (Rust), built with **magnus** + **rb-sys** and packaged as the `ironcalc` gem. It depends on the **published `ironcalc` crate from crates.io** (currently `0.9.0`), not a local IronCalc checkout.
+Ruby bindings for the **IronCalc** spreadsheet engine (Rust), built with **magnus** + **rb-sys** and packaged as the `ironcalc` gem. It depends on the **published `ironcalc` crate from crates.io** (currently `0.9.1`), not a local IronCalc checkout.
 
 ## Working rules
 
@@ -101,7 +101,7 @@ Published by `.github/workflows/docs.yml` to **GitHub Pages**. Validation (`yard
 
 ### Critical naming constraint
 
-The Cargo package/lib is **`ironcalc_ruby`**, NOT `ironcalc`, because the engine dependency's own Cargo package is named `ironcalc`, and `RbSys::ExtensionTask` resolves the extension by **Cargo package name** — a same-named ext crate would resolve to the engine and break the build. The engine dep is therefore renamed in `Cargo.toml`: `xlsx = { package = "ironcalc", version = "0.9.0" }`, so Rust source refers to it as `xlsx::base`, `xlsx::import`, `xlsx::export` (matching the Python binding). The compiled artifact is `ironcalc_ruby`; `require "ironcalc"` and the gem name are unaffected.
+The Cargo package/lib is **`ironcalc_ruby`**, NOT `ironcalc`, because the engine dependency's own Cargo package is named `ironcalc`, and `RbSys::ExtensionTask` resolves the extension by **Cargo package name** — a same-named ext crate would resolve to the engine and break the build. The engine dep is therefore renamed in `Cargo.toml`: `xlsx = { package = "ironcalc", version = "0.9.1" }`, so Rust source refers to it as `xlsx::base`, `xlsx::import`, `xlsx::export` (matching the Python binding). The compiled artifact is `ironcalc_ruby`; `require "ironcalc"` and the gem name are unaffected.
 
 ### Two APIs: `UserModel` (recommended) vs `Model` (raw)
 
