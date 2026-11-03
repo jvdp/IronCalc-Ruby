@@ -4,7 +4,8 @@ use std::io::Cursor;
 use magnus::value::StaticSymbol;
 use magnus::error::ErrorType;
 use magnus::value::ReprValue;
-use magnus::{IntoValue, RArray, RString, Ruby, TryConvert, Value};
+use magnus::r_hash::ForEach;
+use magnus::{IntoValue, RArray, RHash, RString, Ruby, TryConvert, Value};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
@@ -20,6 +21,29 @@ use crate::error::workbook_error;
 /// struct's field names (Symbols out; Symbols or Strings in).
 pub(crate) fn to_ruby<T: Serialize>(value: &T) -> Result<Value, magnus::Error> {
     serde_magnus::serialize(&ruby(), value)
+}
+
+/// An enum of unit and struct variants as `{type: "Variant", field: value, ...}`.
+pub(crate) fn to_ruby_tagged<T: Serialize>(value: &T) -> Result<Value, magnus::Error> {
+    let ruby = ruby();
+    let value = to_ruby(value)?;
+    let tagged = ruby.hash_new();
+    let type_key = ruby.sym_new("type");
+    if let Some(variant) = RString::from_value(value) {
+        tagged.aset(type_key, variant)?;
+        return Ok(tagged.as_value());
+    }
+    // serde_magnus writes any other variant as `{"Name" => {field: value, ...}}`.
+    let variant = RHash::from_value(value).filter(|hash| hash.len() == 1);
+    let Some(variant) = variant else {
+        return Err(magnus::Error::new(ruby.exception_type_error(), "expected an enum variant"));
+    };
+    variant.foreach(|name: RString, fields: RHash| {
+        tagged.aset(type_key, name)?;
+        tagged.update(fields)?;
+        Ok(ForEach::Continue)
+    })?;
+    Ok(tagged.as_value())
 }
 
 pub(crate) fn from_ruby<T: DeserializeOwned>(value: Value) -> Result<T, magnus::Error> {
@@ -733,5 +757,67 @@ impl Model {
             .borrow_mut()
             .is_valid_defined_name(&name, scope, &formula)
             .map_err(workbook_error)
+    }
+
+    // Merged cells ----------------------------------------------------------
+
+    pub fn merge_cells(&self, range: Value) -> Result<(), magnus::Error> {
+        let range: Area = from_ruby(range)?;
+        self.model
+            .borrow_mut()
+            .merge_cells(&range)
+            .map_err(workbook_error)
+    }
+
+    pub fn merge_cells_across(&self, range: Value) -> Result<(), magnus::Error> {
+        let range: Area = from_ruby(range)?;
+        self.model
+            .borrow_mut()
+            .merge_cells_across(&range)
+            .map_err(workbook_error)
+    }
+
+    pub fn merge_cells_center(&self, range: Value) -> Result<(), magnus::Error> {
+        let range: Area = from_ruby(range)?;
+        self.model
+            .borrow_mut()
+            .merge_cells_center(&range)
+            .map_err(workbook_error)
+    }
+
+    pub fn merge_cells_down(&self, range: Value) -> Result<(), magnus::Error> {
+        let range: Area = from_ruby(range)?;
+        self.model
+            .borrow_mut()
+            .merge_cells_down(&range)
+            .map_err(workbook_error)
+    }
+
+    pub fn unmerge_cells(&self, range: Value) -> Result<(), magnus::Error> {
+        let range: Area = from_ruby(range)?;
+        self.model
+            .borrow_mut()
+            .unmerge_cells(&range)
+            .map_err(workbook_error)
+    }
+
+    pub fn get_merged_cells(&self, sheet: u32) -> Result<Value, magnus::Error> {
+        let model = self.model.borrow();
+        let merged_cells = model.get_merged_cells(sheet).map_err(workbook_error)?;
+        to_ruby(&merged_cells)
+    }
+
+    pub fn get_merge_structure(
+        &self,
+        sheet: u32,
+        row: i32,
+        column: i32,
+    ) -> Result<Value, magnus::Error> {
+        let structure = self
+            .model
+            .borrow()
+            .get_merge_structure(sheet, row, column)
+            .map_err(workbook_error)?;
+        to_ruby_tagged(&structure)
     }
 }
