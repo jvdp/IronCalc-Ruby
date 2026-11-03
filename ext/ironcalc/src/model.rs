@@ -23,14 +23,12 @@ pub(crate) fn to_ruby<T: Serialize>(value: &T) -> Result<Value, magnus::Error> {
     serde_magnus::serialize(&ruby(), value)
 }
 
-/// An engine enum that carries data, as one Hash whatever the variant: its name
-/// under `:type`, its fields alongside (`{type: "Anchor", width:, height:}`,
-/// `{type: "None"}`). Handles unit and struct variants.
+/// An enum of unit and struct variants as `{type: "Variant", field: value, ...}`.
 pub(crate) fn to_ruby_tagged<T: Serialize>(value: &T) -> Result<Value, magnus::Error> {
     let ruby = ruby();
     let value = to_ruby(value)?;
     let tagged = ruby.hash_new();
-    let type_key = ruby.to_symbol("type");
+    let type_key = ruby.sym_new("type");
     if let Some(variant) = RString::from_value(value) {
         tagged.aset(type_key, variant)?;
         return Ok(tagged.as_value());
@@ -42,10 +40,7 @@ pub(crate) fn to_ruby_tagged<T: Serialize>(value: &T) -> Result<Value, magnus::E
     };
     variant.foreach(|name: RString, fields: RHash| {
         tagged.aset(type_key, name)?;
-        fields.foreach(|field: Value, value: Value| {
-            tagged.aset(field, value)?;
-            Ok(ForEach::Continue)
-        })?;
+        tagged.update(fields)?;
         Ok(ForEach::Continue)
     })?;
     Ok(tagged.as_value())

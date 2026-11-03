@@ -630,10 +630,7 @@ module IronCalc
     #   @raise [IronCalc::Error]
 
     # @!method merge_cells(range)
-    #   Merges a range into one merged cell anchored at its top-left cell. The
-    #   content and style of the range's one non-empty cell (or of the anchor,
-    #   if all are empty) move to the anchor and the style spreads over the
-    #   range.
+    #   Merges a range into one cell anchored at its top-left cell.
     #   @param range [Hash] the engine's +Area+: +{sheet:, row:, column:, width:,
     #     height:}+
     #   @return [void]
@@ -642,31 +639,30 @@ module IronCalc
     #     with content; nothing changes
 
     # @!method merge_cells_across(range)
-    #   Like {#merge_cells}, merging each row of the range separately. All rows
-    #   merge or none do.
+    #   {#merge_cells} on each row of the range; all rows or none.
     #   @param range [Hash] the engine's +Area+
     #   @return [void]
     #   @raise [IronCalc::Error] as {#merge_cells}, for any row
 
     # @!method merge_cells_center(range)
-    #   Like {#merge_cells}, and centers the merged cell horizontally.
+    #   {#merge_cells}, then centers the merged cell horizontally.
     #   @param range [Hash] the engine's +Area+
     #   @return [void]
     #   @raise [IronCalc::Error] as {#merge_cells}
 
     # @!method merge_cells_down(range)
-    #   Like {#merge_cells}, merging each column of the range separately. All
-    #   columns merge or none do.
+    #   {#merge_cells} on each column of the range; all columns or none.
     #   @param range [Hash] the engine's +Area+
     #   @return [void]
     #   @raise [IronCalc::Error] as {#merge_cells}, for any column
 
     # @!method unmerge_cells(range)
-    #   Removes every merged cell that intersects the range; anchors keep their
-    #   content. A range with no merged cells is not an error.
+    #   Removes every merged cell that intersects the range.
     #   @param range [Hash] the engine's +Area+
     #   @return [void]
-    #   @raise [IronCalc::Error] if the range has a non-positive dimension
+    #   @raise [IronCalc::Error] if the range is invalid (a +row+, +column+,
+    #     +width+ or +height+ below 1) or the sheet doesn't exist, not if it
+    #     holds no merged cells
 
     # @!method get_merged_cells(sheet)
     #   The sheet's merged cells as +{row:, column:, width:, height:}+ Hashes,
@@ -1042,40 +1038,36 @@ module IronCalc
     #   @return [void]
 
     # @!method merge_cells(range)
-    #   Merges a range into one merged cell anchored at its top-left cell, like
-    #   {Model#merge_cells}. Undoable.
+    #   {Model#merge_cells}, as one undo step.
     #   @param range [Hash] the engine's +Area+: +{sheet:, row:, column:, width:,
     #     height:}+
     #   @return [void]
     #   @raise [IronCalc::Error] as {Model#merge_cells}
 
     # @!method merge_cells_across(range)
-    #   Like {#merge_cells}, merging each row of the range separately. All rows
-    #   merge or none do, as one undo step.
+    #   {Model#merge_cells_across}, as one undo step.
     #   @param range [Hash] the engine's +Area+
     #   @return [void]
     #   @raise [IronCalc::Error] as {Model#merge_cells}, for any row
 
     # @!method merge_cells_center(range)
-    #   Like {#merge_cells}, and centers the merged cell horizontally, as one
-    #   undo step.
+    #   {Model#merge_cells_center}, as one undo step.
     #   @param range [Hash] the engine's +Area+
     #   @return [void]
     #   @raise [IronCalc::Error] as {Model#merge_cells}
 
     # @!method merge_cells_down(range)
-    #   Like {#merge_cells}, merging each column of the range separately. All
-    #   columns merge or none do, as one undo step.
+    #   {Model#merge_cells_down}, as one undo step.
     #   @param range [Hash] the engine's +Area+
     #   @return [void]
     #   @raise [IronCalc::Error] as {Model#merge_cells}, for any column
 
     # @!method unmerge_cells(range)
-    #   Removes every merged cell that intersects the range; anchors keep their
-    #   content. Undoable; a range with no merged cells is a no-op.
+    #   {Model#unmerge_cells}, as one undo step (none if no merged cell intersects
+    #   the range).
     #   @param range [Hash] the engine's +Area+
     #   @return [void]
-    #   @raise [IronCalc::Error] if the range has a non-positive dimension
+    #   @raise [IronCalc::Error] as {Model#unmerge_cells}
 
     # @!method get_merged_cells(sheet)
     #   The sheet's merged cells as +{row:, column:, width:, height:}+ Hashes,
