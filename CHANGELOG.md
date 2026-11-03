@@ -1,3 +1,11 @@
+## 0.9.1.0
+
+- update the IronCalc engine to 0.9.1
+- merged cells on `Model` and `UserModel`: `merge_cells`, `merge_cells_across`,
+  `merge_cells_center`, `merge_cells_down`, `unmerge_cells` and
+  `get_merged_cells`, plus `get_merge_structure` on `Model`, which returns a
+  Hash tagged by `:type` (`{type: "Anchor", width:, height:}`)
+
 ## 0.9.0.0
 
 - update the IronCalc engine to 0.9.0
