@@ -53,9 +53,9 @@ class MergedCellsTest < Minitest::Test
   def test_get_merge_structure
     model.merge_cells(area(1, 1, 2, 3))
 
-    assert_equal({Anchor: {width: 2, height: 3}}, model.get_merge_structure(0, 1, 1))
-    assert_equal({Covered: {anchor_row: 1, anchor_column: 1}}, model.get_merge_structure(0, 3, 2))
-    assert_equal "None", model.get_merge_structure(0, 4, 1)
+    assert_equal({type: "Anchor", width: 2, height: 3}, model.get_merge_structure(0, 1, 1))
+    assert_equal({type: "Covered", anchor_row: 1, anchor_column: 1}, model.get_merge_structure(0, 3, 2))
+    assert_equal({type: "None"}, model.get_merge_structure(0, 4, 1))
   end
 
   def test_overlapping_merge_raises

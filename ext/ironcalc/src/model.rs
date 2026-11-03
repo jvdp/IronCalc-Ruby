@@ -4,7 +4,8 @@ use std::io::Cursor;
 use magnus::value::StaticSymbol;
 use magnus::error::ErrorType;
 use magnus::value::ReprValue;
-use magnus::{IntoValue, RArray, RString, Ruby, TryConvert, Value};
+use magnus::r_hash::ForEach;
+use magnus::{IntoValue, RArray, RHash, RString, Ruby, TryConvert, Value};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
@@ -20,6 +21,34 @@ use crate::error::workbook_error;
 /// struct's field names (Symbols out; Symbols or Strings in).
 pub(crate) fn to_ruby<T: Serialize>(value: &T) -> Result<Value, magnus::Error> {
     serde_magnus::serialize(&ruby(), value)
+}
+
+/// An engine enum that carries data, as one Hash whatever the variant: its name
+/// under `:type`, its fields alongside (`{type: "Anchor", width:, height:}`,
+/// `{type: "None"}`). Handles unit and struct variants.
+pub(crate) fn to_ruby_tagged<T: Serialize>(value: &T) -> Result<Value, magnus::Error> {
+    let ruby = ruby();
+    let value = to_ruby(value)?;
+    let tagged = ruby.hash_new();
+    let type_key = ruby.to_symbol("type");
+    if let Some(variant) = RString::from_value(value) {
+        tagged.aset(type_key, variant)?;
+        return Ok(tagged.as_value());
+    }
+    // serde_magnus writes any other variant as `{"Name" => {field: value, ...}}`.
+    let variant = RHash::from_value(value).filter(|hash| hash.len() == 1);
+    let Some(variant) = variant else {
+        return Err(magnus::Error::new(ruby.exception_type_error(), "expected an enum variant"));
+    };
+    variant.foreach(|name: RString, fields: RHash| {
+        tagged.aset(type_key, name)?;
+        fields.foreach(|field: Value, value: Value| {
+            tagged.aset(field, value)?;
+            Ok(ForEach::Continue)
+        })?;
+        Ok(ForEach::Continue)
+    })?;
+    Ok(tagged.as_value())
 }
 
 pub(crate) fn from_ruby<T: DeserializeOwned>(value: Value) -> Result<T, magnus::Error> {
@@ -794,6 +823,6 @@ impl Model {
             .borrow()
             .get_merge_structure(sheet, row, column)
             .map_err(workbook_error)?;
-        to_ruby(&structure)
+        to_ruby_tagged(&structure)
     }
 }

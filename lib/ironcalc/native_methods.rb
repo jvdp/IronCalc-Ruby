@@ -676,25 +676,25 @@ module IronCalc
     #   @raise [IronCalc::Error]
 
     # @!method get_merge_structure(sheet, row, column)
-    #   Where a cell stands relative to the sheet's merged cells, in the
-    #   engine's +MergeStructure+ serde shape: +"None"+,
-    #   +{Anchor: {width:, height:}}+ or
-    #   +{Covered: {anchor_row:, anchor_column:}}+.
+    #   Where a cell stands relative to the sheet's merged cells, as a Hash
+    #   tagged by the engine's +MergeStructure+ variant: +{type: "None"}+,
+    #   +{type: "Anchor", width:, height:}+ or
+    #   +{type: "Covered", anchor_row:, anchor_column:}+.
     #   @example The +Area+ displayed as one cell at a position
     #     def displayed_area(model, sheet, row, column)
     #       case model.get_merge_structure(sheet, row, column)
-    #       in "None"
+    #       in {type: "None"}
     #         {sheet: sheet, row: row, column: column, width: 1, height: 1}
-    #       in {Anchor: {width:, height:}}
+    #       in {type: "Anchor", width:, height:}
     #         {sheet: sheet, row: row, column: column, width: width, height: height}
-    #       in {Covered: {anchor_row:, anchor_column:}}
+    #       in {type: "Covered", anchor_row:, anchor_column:}
     #         displayed_area(model, sheet, anchor_row, anchor_column)
     #       end
     #     end
     #   @param sheet [Integer]
     #   @param row [Integer]
     #   @param column [Integer]
-    #   @return [String, Hash]
+    #   @return [Hash]
     #   @raise [IronCalc::Error]
 
     # (yardoc bug lsegal/yard#1207). Doc-only file, never loaded at runtime.
