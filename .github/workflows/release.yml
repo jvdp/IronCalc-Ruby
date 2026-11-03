@@ -50,7 +50,7 @@ jobs:
         with:
           platform: ${{ matrix.platform }}
           # Every Ruby the cross-compilers support within the gemspec's range.
-          ruby-versions: ">= 3.0"
+          ruby-versions: ">= 3.3"
 
       - uses: actions/upload-artifact@v7
         with:
